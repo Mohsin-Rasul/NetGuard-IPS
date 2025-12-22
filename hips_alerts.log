@@ -50,3 +50,6 @@
 [2025-12-14 01:38:07] [HIGH] IP: 192.168.18.1 - ARP Spoofing Detected (MAC Change)
 [2025-12-14 01:38:09] [HIGH] IP: 192.168.18.1 - ARP Spoofing Detected (MAC Change)
 [2025-12-14 01:38:10] [HIGH] IP: 192.168.18.1 - ARP Spoofing Detected (MAC Change)
+[2025-12-15 12:28:43] [HIGH] IP: 45.155.205.10 - Signature Match: SQL Injection (Simulation)
+[2025-12-15 12:30:19] [HIGH] IP: 45.155.205.10 - Signature Match: SQL Injection (Simulation)
+[2025-12-15 12:31:11] [HIGH] IP: 45.155.205.10 - Signature Match: SQL Injection (Simulation)

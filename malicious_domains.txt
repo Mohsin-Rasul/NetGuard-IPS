@@ -1,0 +1,13 @@
+# Sample malicious domains list for DNS/SNI detection
+# Add your own domains to this list, one per line
+# Lines starting with # are comments
+
+# Common malicious/C2 domains (examples)
+evil.com
+malware-c2.net
+phishing-site.xyz
+ransomware-pay.ru
+trojan-command.com
+botnet-node.info
+
+# Add more domains as needed

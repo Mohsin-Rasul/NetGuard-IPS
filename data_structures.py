@@ -1,69 +1,9 @@
-"""
-Simplified data structures used by NetGuard-IPS.
+# data_structures.py
 
-This keeps the same public classes and methods used elsewhere but
-implements them with simple, easy-to-read Python containers.
-"""
-
-from typing import Set, Dict
-
-
-class BlacklistBST:
-    """Simple blacklist container with the same API as the original BST.
-
-    Internally this uses a set for O(1) insert/search while keeping
-    the `insert(ip)` and `search(ip)` methods expected by the rest
-    of the codebase.
-    """
-
-    def __init__(self):
-        self._set: Set[str] = set()
-
-    def insert(self, ip: str) -> None:
-        self._set.add(ip)
-
-    def search(self, ip: str) -> bool:
-        return ip in self._set
-
-
-class AlertStack:
-    """A minimal stack for alerts (LIFO).
-
-    Methods: `push(alert)`, `pop()` and `is_empty()` match the previous API.
-    """
-
-    def __init__(self):
-        self._data = []
-
-    def push(self, alert: str) -> None:
-        self._data.append(alert)
-
-    def pop(self):
-        if not self._data:
-            return None
-        return self._data.pop()
-
-    def is_empty(self) -> bool:
-        return len(self._data) == 0
-
-
-# NetworkGraph removed — visualization not required. Keep file minimal.
-# ==========================================
-# PART 1: DATA STRUCTURES (From Labs)
-# ==========================================
-
-# --- [Lab 8] Binary Search Tree (BST) ---
+# --- Binary Search Tree (for Blocked IPs) ---
 class BSTNode:
-    def __init__(self, ip):
-        self.ip = ip
-        self.left = None# ==========================================
-# PART 1: DATA STRUCTURES (From Labs)
-# ==========================================
-
-# --- [Lab 8] Binary Search Tree (BST) ---
-class BSTNode:
-    def __init__(self, ip):
-        self.ip = ip
+    def __init__(self, ipaddress):
+        self.ip = ipaddress
         self.left = None
         self.right = None
 
@@ -71,39 +11,38 @@ class BlacklistBST:
     def __init__(self):
         self.root = None
 
-    def insert(self, ip):
-        if not self.root:
-            self.root = BSTNode(ip)
+    def insert(self, ipaddress):
+        if self.root is None:
+            self.root = BSTNode(ipaddress)
         else:
-            self._insert_recursive(self.root, ip)
+            self.insertrecursive(self.root, ipaddress)
 
-    def _insert_recursive(self, node, ip):
-        if ip < node.ip:
+    def insertrecursive(self, node, ipaddress):
+        if ipaddress < node.ip:
             if node.left is None:
-                node.left = BSTNode(ip)
+                node.left = BSTNode(ipaddress)
             else:
-                self._insert_recursive(node.left, ip)
-        elif ip > node.ip:
+                self.insertrecursive(node.left, ipaddress)
+        elif ipaddress > node.ip:
             if node.right is None:
-                node.right = BSTNode(ip)
+                node.right = BSTNode(ipaddress)
             else:
-                self._insert_recursive(node.right, ip)
+                self.insertrecursive(node.right, ipaddress)
 
-    # [Lab 10] Binary Search Algorithm
-    def search(self, ip):
-        return self._search_recursive(self.root, ip)
+    def search(self, ipaddress):
+        return self.searchrecursive(self.root, ipaddress)
 
-    def _search_recursive(self, node, ip):
+    def searchrecursive(self, node, ipaddress):
         if node is None:
             return False
-        if ip == node.ip:
+        if ipaddress == node.ip:
             return True
-        elif ip < node.ip:
-            return self._search_recursive(node.left, ip)
+        elif ipaddress < node.ip:
+            return self.searchrecursive(node.left, ipaddress)
         else:
-            return self._search_recursive(node.right, ip)
+            return self.searchrecursive(node.right, ipaddress)
 
-# --- [Lab 4 & 6] Stack using Singly Linked List ---
+# --- Stack (for Alerts) ---
 class StackNode:
     def __init__(self, data):
         self.data = data
@@ -111,107 +50,32 @@ class StackNode:
 
 class AlertStack:
     def __init__(self):
-        self.top = None 
+        self.top = None
         self.size = 0
 
     def push(self, alert):
-        new_node = StackNode(alert)
-        new_node.next = self.top
-        self.top = new_node
+        newnode = StackNode(alert)
+        newnode.next = self.top
+        self.top = newnode
         self.size += 1
 
     def pop(self):
-        if self.is_empty():
+        if self.isempty():
             return None
         data = self.top.data
         self.top = self.top.next
         self.size -= 1
         return data
 
-    def is_empty(self):
+    def isempty(self):
         return self.top is None
 
-# --- [Lab 9] Graph Data Structure ---
+# --- Graph (for Network Map) ---
 class NetworkGraph:
     def __init__(self):
-        self.adj_list = {} 
+        self.adjlist = {}
 
-    def add_connection(self, src, dst):
-        if src not in self.adj_list:
-            self.adj_list[src] = set()
-        self.adj_list[src].add(dst)
-        self.right = None
-
-class BlacklistBST:
-    def __init__(self):
-        self.root = None
-
-    def insert(self, ip):
-        if not self.root:
-            self.root = BSTNode(ip)
-        else:
-            self._insert_recursive(self.root, ip)
-
-    def _insert_recursive(self, node, ip):
-        if ip < node.ip:
-            if node.left is None:
-                node.left = BSTNode(ip)
-            else:
-                self._insert_recursive(node.left, ip)
-        elif ip > node.ip:
-            if node.right is None:
-                node.right = BSTNode(ip)
-            else:
-                self._insert_recursive(node.right, ip)
-
-    # [Lab 10] Binary Search Algorithm
-    def search(self, ip):
-        return self._search_recursive(self.root, ip)
-
-    def _search_recursive(self, node, ip):
-        if node is None:
-            return False
-        if ip == node.ip:
-            return True
-        elif ip < node.ip:
-            return self._search_recursive(node.left, ip)
-        else:
-            return self._search_recursive(node.right, ip)
-
-# --- [Lab 4 & 6] Stack using Singly Linked List ---
-class StackNode:
-    def __init__(self, data):
-        self.data = data
-        self.next = None
-
-class AlertStack:
-    def __init__(self):
-        self.top = None 
-        self.size = 0
-
-    def push(self, alert):
-        new_node = StackNode(alert)
-        new_node.next = self.top
-        self.top = new_node
-        self.size += 1
-
-    def pop(self):
-        if self.is_empty():
-            return None
-        data = self.top.data
-        self.top = self.top.next
-        self.size -= 1
-        return data
-
-    def is_empty(self):
-        return self.top is None
-
-# --- [Lab 9] Graph Data Structure ---
-class NetworkGraph:
-    def __init__(self):
-        self.adj_list = {} 
-
-    def add_connection(self, src, dst):
-        if src not in self.adj_list:
-            self.adj_list[src] = set()
-        self.adj_list[src].add(dst)
+    def addconnection(self, src, dst):
+        if src not in self.adjlist:
+            self.adjlist[src] = set()
+        self.adjlist[src].add(dst)

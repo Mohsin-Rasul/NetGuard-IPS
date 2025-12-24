@@ -1,7 +1,0 @@
- def clear_table(self):
-        self.tree.delete(*self.tree.get_children())
-        self.captureddata.clear()
-        self.var_pkts.set("0")
-        self.stat_packets = 0
-        self.var_bytes.set("0")
-        self.stat_bytes = 0 

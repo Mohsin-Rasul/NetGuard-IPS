@@ -1,14 +1,10 @@
 {
   "settings": {
-    "analyze_local": false,
     "enable_ipv6": true,
     "auto_update_feeds": true,
-    "log_rotation_max_mb": 10,
-    "log_retention_files": 5,
-    "gui_theme": "default",
     "notification_on_block": true,
-    "authentication_enabled": false,
-    "detection_sensitivity": "medium"
+    "analyze_local": false,
+    "detection_sensitivity": "high"
   },
   "version": "2.0"
 }

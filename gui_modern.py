@@ -199,7 +199,7 @@ class ModernGUI:
         for i, (key, label, value, color) in enumerate(stats_data):
             stat_card = self.create_stat_card(stats_frame, label, value, color)
             stat_card.grid(row=0, column=i, padx=10, pady=10, sticky='nsew')
-            self.stat_widgets[key] = (stat_card.winfo_children()[1], stat_card.winfo_children()[2])
+            self.stat_widgets[key] = (stat_card.winfo_children()[0], stat_card.winfo_children()[1])
         
         stats_frame.columnconfigure(0, weight=1)
         stats_frame.columnconfigure(1, weight=1)

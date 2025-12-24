@@ -476,6 +476,9 @@ class DetectionEngine(threading.Thread):
         with self.blocked_lock:
             self.blocked_ips.add(src_ip)
         
+        # Update the shared blacklist BST so it appears in the GUI
+        self.blacklist.insert(src_ip)
+        
         self.metrics['ips_blocked'] += 1
         if "IPv6" in reason or "ipv6" in reason.lower():
             self.metrics['ipv6_blocked'] += 1
@@ -554,6 +557,7 @@ class DetectionEngine(threading.Thread):
                     with self.blocked_lock:
                         if ip not in self.blocked_ips:
                             self.blocked_ips.add(ip)
+                            self.blacklist.insert(ip)
                             # Try to re-apply OS-level block asynchronously
                             t = threading.Thread(target=FirewallManager.block_ip, args=(ip,), daemon=True)
                             t.start()

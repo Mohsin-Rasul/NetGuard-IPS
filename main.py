@@ -620,3 +620,4 @@ if __name__ == "__main__":
     # Cleanup
     if app.resolver:
         app.resolver.stop()
+        

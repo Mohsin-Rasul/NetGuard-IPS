@@ -20,7 +20,7 @@ class ModernIPS_GUI:
     def __init__(self, root):
         self.root = root
         self.root.title("NetGuard-IPS | Dashboard")
-        self.root.geometry("1100x750")
+        self.root.geometry("1000x700")
         self.root.configure(bg="#f4f6f9") # Light grey background
 
         # --- Logic / Data ---
@@ -60,7 +60,7 @@ class ModernIPS_GUI:
         
         # Treeview Styles
         style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"), background="#dfe6e9")
-        style.configure("Treeview", font=("Consolas", 9), rowheight=25)
+        style.configure("Treeview", font=("Consolas", 10), rowheight=28)
         
         # Button Styles
         style.configure("Start.TButton", font=("Segoe UI", 10, "bold"), foreground="green")
@@ -112,19 +112,18 @@ class ModernIPS_GUI:
         make_card(dash_frame, "ALERTS TRIGGERED", self.var_alerts, "#e67e22")
 
     def create_main_content(self):
-        # Paned Window for Traffic (Left) and Graph (Right)
-        paned = tk.PanedWindow(self.root, orient="horizontal", bg="#f4f6f9")
-        paned.pack(fill="both", expand=True, padx=20, pady=5)
+        # Main Frame for Traffic Table
+        main_frame = tk.Frame(self.root, bg="#f4f6f9", padx=20, pady=5)
+        main_frame.pack(fill="both", expand=True)
         
-        # --- LEFT: Traffic Table ---
-        left_frame = tk.LabelFrame(paned, text=" Live Network Traffic ", font=("Segoe UI", 11, "bold"), bg="white")
-        paned.add(left_frame, minsize=500)
+        table_label_frame = tk.LabelFrame(main_frame, text=" Live Network Traffic Monitor ", font=("Segoe UI", 11, "bold"), bg="white")
+        table_label_frame.pack(fill="both", expand=True)
         
         cols = ("Time", "Source", "Destination", "Proto", "Size", "Process")
-        self.tree = ttk.Treeview(left_frame, columns=cols, show="headings", selectmode="browse")
+        self.tree = ttk.Treeview(table_label_frame, columns=cols, show="headings", selectmode="browse")
         
         # Scrollbar
-        vsb = ttk.Scrollbar(left_frame, orient="vertical", command=self.tree.yview)
+        vsb = ttk.Scrollbar(table_label_frame, orient="vertical", command=self.tree.yview)
         self.tree.configure(yscroll=vsb.set)
         
         self.tree.pack(side="left", fill="both", expand=True)
@@ -132,17 +131,17 @@ class ModernIPS_GUI:
         
         # Column Config
         self.tree.heading("Time", text="Time")
-        self.tree.column("Time", width=80)
+        self.tree.column("Time", width=100, anchor="center")
         self.tree.heading("Source", text="Source IP")
-        self.tree.column("Source", width=120)
+        self.tree.column("Source", width=150)
         self.tree.heading("Destination", text="Dest IP")
-        self.tree.column("Destination", width=120)
+        self.tree.column("Destination", width=150)
         self.tree.heading("Proto", text="Protocol")
-        self.tree.column("Proto", width=70, anchor="center")
-        self.tree.heading("Size", text="Size")
-        self.tree.column("Size", width=60, anchor="e")
-        self.tree.heading("Process", text="App/PID")
-        self.tree.column("Process", width=100)
+        self.tree.column("Proto", width=80, anchor="center")
+        self.tree.heading("Size", text="Size (Bytes)")
+        self.tree.column("Size", width=100, anchor="e")
+        self.tree.heading("Process", text="App / Process ID")
+        self.tree.column("Process", width=150)
         
         # Tag Colors
         self.tree.tag_configure('TCP', foreground='#2980b9')
@@ -150,21 +149,8 @@ class ModernIPS_GUI:
         self.tree.tag_configure('Other', foreground='black')
 
         # Bubble Sort Button
-        btn_sort = ttk.Button(left_frame, text="Sort by Size (Bubble Sort)", command=self.bubblesort)
+        btn_sort = ttk.Button(table_label_frame, text="Sort Traffic by Size (Bubble Sort)", command=self.bubblesort)
         btn_sort.pack(side="bottom", fill="x")
-
-        # --- RIGHT: Network Map ---
-        right_frame = tk.LabelFrame(paned, text=" Topology Map ", font=("Segoe UI", 11, "bold"), bg="white")
-        paned.add(right_frame, minsize=300)
-        
-        self.canvas = tk.Canvas(right_frame, bg="white")
-        self.canvas.pack(fill="both", expand=True)
-        
-        # Draw Center Node
-        cx, cy = 150, 150
-        self.canvas.create_oval(cx-20, cy-20, cx+20, cy+20, fill=self.col_dark, outline="")
-        self.canvas.create_text(cx, cy+30, text="Localhost", font=("Segoe UI", 10, "bold"))
-        self.nodes = {}
 
     def create_footer_alerts(self):
         # Bottom section for alerts
@@ -178,7 +164,8 @@ class ModernIPS_GUI:
     # --- System Logic ---
 
     def start_system(self):
-        if self.running: return
+        if self.running:
+            return
         self.running = True
         self.btn_start.config(state="disabled")
         self.btn_stop.config(state="normal")
@@ -195,8 +182,10 @@ class ModernIPS_GUI:
         self.running = False
         self.btn_start.config(state="normal")
         self.btn_stop.config(state="disabled")
-        if self.sniffer: self.sniffer.stop()
-        if self.detector: self.detector.stop()
+        if self.sniffer:
+            self.sniffer.stop()
+        if self.detector:
+            self.detector.stop()
 
     def update_gui_threadsafe(self, msgtype, data):
         self.root.after(0, lambda: self.process_update(msgtype, data))
@@ -222,7 +211,8 @@ class ModernIPS_GUI:
                         if conn.laddr.port == sport or conn.laddr.port == dport:
                             processname = psutil.Process(conn.pid).name()
                             break
-                except: pass
+                except Exception:
+                    pass
 
             row = (timestamp, src, dst, proto, size, processname)
             self.captureddata.append(row)
@@ -233,8 +223,6 @@ class ModernIPS_GUI:
             
             if len(self.tree.get_children()) > 50:
                 self.tree.delete(self.tree.get_children()[-1])
-
-            self.update_graph(src)
 
         elif msgtype == "ALERT":
             self.stat_alerts += 1
@@ -250,26 +238,6 @@ class ModernIPS_GUI:
                  msg = data
             
             self.alert_list.insert(0, f"{timestamp} {msg}")
-
-    def update_graph(self, ip):
-        # Draw "Satellite" nodes around the center
-        if ip not in self.nodes:
-            angle = random.uniform(0, 6.28)
-            dist = random.randint(50, 120)
-            cx, cy = 150, 150 # Canvas Center
-            
-            x = cx + int(dist * 1.5 * random.random() * (1 if random.random() > 0.5 else -1))
-            y = cy + int(dist * random.random() * (1 if random.random() > 0.5 else -1))
-            
-            # Keep inside bounds
-            x = max(20, min(x, 280))
-            y = max(20, min(y, 250))
-            
-            # Draw Line first
-            self.canvas.create_line(cx, cy, x, y, fill="#bdc3c7", width=1)
-            # Draw Node
-            self.canvas.create_oval(x-5, y-5, x+5, y+5, fill=self.col_primary, outline="")
-            self.nodes[ip] = (x, y)
 
     def bubblesort(self):
         data = self.captureddata

@@ -1,3 +1,53 @@
+"""
+Simplified data structures used by NetGuard-IPS.
+
+This keeps the same public classes and methods used elsewhere but
+implements them with simple, easy-to-read Python containers.
+"""
+
+from typing import Set, Dict
+
+
+class BlacklistBST:
+    """Simple blacklist container with the same API as the original BST.
+
+    Internally this uses a set for O(1) insert/search while keeping
+    the `insert(ip)` and `search(ip)` methods expected by the rest
+    of the codebase.
+    """
+
+    def __init__(self):
+        self._set: Set[str] = set()
+
+    def insert(self, ip: str) -> None:
+        self._set.add(ip)
+
+    def search(self, ip: str) -> bool:
+        return ip in self._set
+
+
+class AlertStack:
+    """A minimal stack for alerts (LIFO).
+
+    Methods: `push(alert)`, `pop()` and `is_empty()` match the previous API.
+    """
+
+    def __init__(self):
+        self._data = []
+
+    def push(self, alert: str) -> None:
+        self._data.append(alert)
+
+    def pop(self):
+        if not self._data:
+            return None
+        return self._data.pop()
+
+    def is_empty(self) -> bool:
+        return len(self._data) == 0
+
+
+# NetworkGraph removed — visualization not required. Keep file minimal.
 # ==========================================
 # PART 1: DATA STRUCTURES (From Labs)
 # ==========================================

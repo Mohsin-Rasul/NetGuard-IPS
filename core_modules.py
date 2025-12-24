@@ -162,7 +162,7 @@ class PacketCaptureThread(threading.Thread):
 
 class DetectionEngine(threading.Thread):
     """Detection Engine: Signature Matching & Anomaly Detection"""
-    def __init__(self, packet_queue, gui_callback, blacklist_bst, alert_stack, network_graph, analyze_local=False):
+    def __init__(self, packet_queue, gui_callback, blacklist_bst, alert_stack, analyze_local=False):
         super().__init__()
         self.packet_queue = packet_queue
         self.stop_event = threading.Event()
@@ -170,7 +170,6 @@ class DetectionEngine(threading.Thread):
         self.gui_callback = gui_callback
         self.blacklist = blacklist_bst
         self.alert_stack = alert_stack
-        self.network_graph = network_graph
         # Whether to analyze local (self) traffic. When False, local_ip is treated as whitelisted.
         self.analyze_local = analyze_local
         
@@ -379,8 +378,7 @@ class DetectionEngine(threading.Thread):
         if src_ip != self.local_ip and dst_ip != self.local_ip:
             return
             
-        # Update Graph
-        self.network_graph.add_connection(src_ip, dst_ip)
+        # Network graph removed — no graph update
 
         # Whitelist Check
         if src_ip in self.whitelist:

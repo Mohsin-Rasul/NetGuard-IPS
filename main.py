@@ -21,7 +21,7 @@ if current_dir not in sys.path:
 
 # Import custom modules
 try:
-    from data_structures import BlacklistBST, AlertStack, NetworkGraph
+    from data_structures import BlacklistBST, AlertStack
     from core_modules import PacketCaptureThread, DetectionEngine, FirewallManager, Logger
 except ImportError as e:
     print(f"CRITICAL IMPORT ERROR: {e}")
@@ -49,7 +49,6 @@ class HipsDashboard:
         # Initialize Labs Logic
         self.blacklist_bst = BlacklistBST()
         self.alert_stack = AlertStack()
-        self.network_graph = NetworkGraph()
         
         # [Lab 7] Queue Implementation
         self.packet_queue = queue.Queue()
@@ -121,9 +120,7 @@ class HipsDashboard:
         map_frame = ttk.LabelFrame(mid_frame, text="Network Map (Graph)", padding=5)
         map_frame.pack(side="right", fill="both", expand=True)
         
-        self.canvas = tk.Canvas(map_frame, bg="white", width=400, height=350)
-        self.canvas.pack(fill="both", expand=True)
-        self.nodes_drawn = {} 
+        # Network map removed — simplified UI
 
         alert_frame = ttk.LabelFrame(root, text="Security Alerts (Linked List Stack)", padding=10)
         alert_frame.pack(fill="x", padx=10, pady=5)
@@ -144,9 +141,6 @@ class HipsDashboard:
         self.sniffer = None
         self.detector = None
         self.is_running = False
-        
-        self.center_x, self.center_y = 200, 175
-        self.draw_node("LocalHost", self.center_x, self.center_y, "blue")
 
     def get_process_for_connection(self, local_side_is_self, local_ip, remote_ip, remote_port):
         """Try to map a connection to a PID/process name using psutil (best-effort)."""
@@ -248,37 +242,16 @@ class HipsDashboard:
         messagebox.showinfo("Sorting", f"Sorted {n} packets using Bubble Sort.")
 
     def draw_node(self, name, x, y, color="gray"):
-        r = 20
-        self.canvas.create_oval(x-r, y-r, x+r, y+r, fill=color, outline="black")
-        display_name = name
-        if len(display_name) > 15:
-            display_name = display_name[:12] + "..."
-        self.canvas.create_text(x, y, text=display_name, font=("Arial", 8))
-        self.nodes_drawn[name] = (x, y) 
+        # Removed network visualization; kept as a no-op to avoid breaking callers
+        return
 
     def draw_edge(self, src, dst, color="black"):
-        if src in self.nodes_drawn and dst in self.nodes_drawn:
-            x1, y1 = self.nodes_drawn[src]
-            x2, y2 = self.nodes_drawn[dst]
-            self.canvas.create_line(x1, y1, x2, y2, fill=color, arrow=tk.LAST)
+        # No-op: network edges removed
+        return
 
     def get_valid_node_position(self):
-        min_dist = 50 
-        width = int(self.canvas.cget("width"))
-        height = int(self.canvas.cget("height"))
-        for _ in range(50):
-            rx = random.randint(40, width - 40)
-            ry = random.randint(40, height - 40)
-            dist_center = ((rx - self.center_x)**2 + (ry - self.center_y)**2)**0.5
-            if dist_center < min_dist: continue
-            overlap = False
-            for (nx, ny) in self.nodes_drawn.values():
-                dist = ((rx - nx)**2 + (ry - ny)**2)**0.5
-                if dist < min_dist:
-                    overlap = True
-                    break
-            if not overlap: return rx, ry
-        return random.randint(40, width - 40), random.randint(40, height - 40)
+        # Network visualization removed; position generation not needed
+        return 0, 0
     
     def generate_random_ip(self):
         """Generate a random IP address from worldwide ranges"""
@@ -440,28 +413,16 @@ class HipsDashboard:
                 if len(self.captured_packets_data) > 50:
                     self.captured_packets_data.pop(0)
 
-            node_key = src_host 
-            if node_key not in self.nodes_drawn:
-                rx, ry = self.get_valid_node_position()
-                self.draw_node(node_key, rx, ry, "green")
-                self.draw_edge("LocalHost", node_key)
+            # Network map removed — no node drawing
             
         elif type == "ALERT":
             # Unpack the 4 items sent by detection engine
             src, hostname, reason, severity = data
-            
+
             msg = f"[{severity.upper()}] BLOCKED {src} ({hostname}) : {reason}"
-            
+
             # Insert at the top (index 0) so newest alerts are first
             self.alert_list.insert(0, msg)
-            
-            # Turn node RED
-            if hostname in self.nodes_drawn:
-                x, y = self.nodes_drawn[hostname]
-                self.draw_node(hostname, x, y, "red")
-            elif src in self.nodes_drawn: 
-                x, y = self.nodes_drawn[src]
-                self.draw_node(src, x, y, "red")
 
         elif type == 'LOCAL_ACTIVITY':
             # data: (direction, src_ip, dst_ip, snippet)
@@ -521,7 +482,6 @@ class HipsDashboard:
             self.update_gui,
             self.blacklist_bst,
             self.alert_stack,
-            self.network_graph,
             analyze_local=self.analyze_local_var.get()
         )
 

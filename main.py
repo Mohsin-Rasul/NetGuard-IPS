@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 import queue
 import time
 import random
@@ -47,8 +47,12 @@ class ProfessionalIPS_GUI:
         self.stat_alerts = 0
         self.stat_inbound = 0
         self.stat_outbound = 0
+        self.stat_tcp = 0
+        self.stat_udp = 0
+        self.stat_icmp = 0
         self.unique_src_ips = set()
         self.unique_dst_ips = set()
+        self.dark_mode = False
 
         # --- Build UI ---
         self.setup_styles()
@@ -142,6 +146,7 @@ class ProfessionalIPS_GUI:
         # Right: Simulation & Export
         ttk.Button(toolbar, text="⚠ Simulate Attack", command=self.simulate_attack).pack(side="right", padx=2)
         ttk.Button(toolbar, text="💾 Export Logs", command=self.export_logs).pack(side="right", padx=2)
+        ttk.Button(toolbar, text="🌓 Theme", command=self.toggle_theme).pack(side="right", padx=2)
 
     def create_notebook(self):
         """Create tabbed interface with multiple views"""
@@ -194,8 +199,9 @@ class ProfessionalIPS_GUI:
         tree_container.pack(fill="both", expand=True)
 
         # Traffic Table with Hostname columns
-        cols = ("Time", "SrcIP", "SrcHost", "DstIP", "DstHost", "Direction", "Protocol", "Size", "Process")
+        cols = ("Time", "SrcIP", "SrcHost", "DstIP", "DstHost", "Direction", "Protocol", "Size", "Process", "Payload")
         self.tree = ttk.Treeview(tree_container, columns=cols, show="headings", selectmode="extended", height=25)
+        self.tree["displaycolumns"] = ("Time", "SrcIP", "SrcHost", "DstIP", "DstHost", "Direction", "Protocol", "Size", "Process")
         
         # Scrollbars
         vsb = ttk.Scrollbar(tree_container, orient="vertical", command=self.tree.yview)
@@ -232,6 +238,15 @@ class ProfessionalIPS_GUI:
         self.tree.tag_configure('ICMP', foreground="#16a085", background="#e8f8f5")
         self.tree.tag_configure('OUTBOUND', foreground="#27ae60")
         self.tree.tag_configure('INBOUND', foreground="#c0392b")
+
+        # Context Menu
+        self.context_menu = tk.Menu(self.tree, tearoff=0)
+        self.context_menu.add_command(label="📋 Copy Source IP", command=lambda: self.copy_from_row(1))
+        self.context_menu.add_command(label="📋 Copy Destination IP", command=lambda: self.copy_from_row(3))
+        self.context_menu.add_separator()
+        self.context_menu.add_command(label="🔍 View Packet Payload", command=self.view_payload)
+        self.context_menu.add_command(label=" Block Source IP", command=self.block_source_ip)
+        self.tree.bind("<Button-3>", self.show_context_menu)
 
     def create_alerts_tab(self):
         """Security alerts and threat log"""
@@ -275,6 +290,8 @@ class ProfessionalIPS_GUI:
             ("Threats Detected", "threats", self.c_red),
             ("Unique Source IPs", "unique_src", "#9b59b6"),
             ("Unique Dest IPs", "unique_dst", "#1abc9c"),
+            ("TCP Packets", "tcp_pkts", "#2980b9"),
+            ("UDP Packets", "udp_pkts", "#8e44ad"),
         ]
 
         for idx, (label, key, color) in enumerate(stats_data):
@@ -346,6 +363,63 @@ class ProfessionalIPS_GUI:
             self.stat_vars['threats'].set(f"{self.stat_blocked}")
             self.stat_vars['unique_src'].set(f"{len(self.unique_src_ips)}")
             self.stat_vars['unique_dst'].set(f"{len(self.unique_dst_ips)}")
+            if 'tcp_pkts' in self.stat_vars:
+                self.stat_vars['tcp_pkts'].set(f"{self.stat_tcp:,}")
+                self.stat_vars['udp_pkts'].set(f"{self.stat_udp:,}")
+
+    def toggle_theme(self):
+        self.dark_mode = not self.dark_mode
+        
+        # Define Colors
+        if self.dark_mode:
+            self.c_bg = "#2c3e50"
+            self.c_dark = "#1a252f"
+            panel_bg = "#34495e"
+            self.c_fg = "#ecf0f1"
+            tree_bg = "#34495e"
+            tree_fg = "#ecf0f1"
+        else:
+            self.c_bg = "#ecf0f1"
+            self.c_dark = "#2c3e50"
+            panel_bg = "white"
+            self.c_fg = "#2c3e50"
+            tree_bg = "white"
+            tree_fg = "black"
+
+        # Apply to Root
+        self.root.configure(bg=self.c_bg)
+        
+        # Apply to Styles
+        style = ttk.Style()
+        style.configure("Treeview", background=tree_bg, foreground=tree_fg, fieldbackground=tree_bg)
+        style.configure("Treeview.Heading", background=self.c_dark, foreground="white")
+        
+        # Recursive Update
+        self.update_gui_recursive(self.root, panel_bg)
+
+    def update_gui_recursive(self, widget, panel_bg):
+        try:
+            wtype = widget.winfo_class()
+            bg = widget.cget('bg')
+            
+            if self.dark_mode:
+                # Switching TO Dark
+                if bg == "#ecf0f1": widget.configure(bg=self.c_bg)
+                elif bg == "#2c3e50": widget.configure(bg=self.c_dark)
+                elif bg in ["white", "#ffffff", "#f0f0f0"]: widget.configure(bg=panel_bg)
+                if wtype in ['Label', 'Listbox'] and widget.cget('fg') in ["black", "#2c3e50"]:
+                    widget.configure(fg=self.c_fg)
+            else:
+                # Switching TO Light
+                if bg == "#2c3e50": widget.configure(bg=self.c_bg)
+                elif bg == "#1a252f": widget.configure(bg=self.c_dark)
+                elif bg == "#34495e": widget.configure(bg=panel_bg)
+                if wtype in ['Label', 'Listbox'] and widget.cget('fg') in ["white", "#ecf0f1"]:
+                    widget.configure(fg=self.c_fg)
+        except: pass
+        
+        for child in widget.winfo_children():
+            self.update_gui_recursive(child, panel_bg)
 
     def start_system(self):
         if self.running: return
@@ -401,8 +475,11 @@ class ProfessionalIPS_GUI:
 
             if self.paused.get(): return # Skip table update if paused
 
-            # Handle 6 or 7 items (Compatibility Mode)
-            if len(data) == 7:
+            # Handle 6, 7, or 8 items (Compatibility Mode)
+            payload = ""
+            if len(data) == 8:
+                src, _, dst, proto, size, sport, dport, payload = data
+            elif len(data) == 7:
                 src, _, dst, proto, size, sport, dport = data
             else:
                 src, dst, proto, size, sport, dport = data
@@ -413,6 +490,12 @@ class ProfessionalIPS_GUI:
             if hasattr(self, 'stat_vars'):
                 self.stat_vars['unique_src'].set(f"{len(self.unique_src_ips)}")
                 self.stat_vars['unique_dst'].set(f"{len(self.unique_dst_ips)}")
+
+            # Update Protocol Stats
+            if 'TCP' in proto: self.stat_tcp += 1
+            elif 'UDP' in proto: self.stat_udp += 1
+            elif 'ICMP' in proto: self.stat_icmp += 1
+            self.refresh_stats_display()
 
             # Determine traffic direction (basic heuristic)
             # Private IP ranges: 10.x, 172.16-31.x, 192.168.x, 127.x
@@ -448,7 +531,7 @@ class ProfessionalIPS_GUI:
                             break
                 except: pass
 
-            row = (timestamp, src, src_host, dst, dst_host, direction, proto, size, proc_name)
+            row = (timestamp, src, src_host, dst, dst_host, direction, proto, size, proc_name, payload)
             self.captureddata.append(row)
 
             # Insert into table
@@ -523,7 +606,11 @@ class ProfessionalIPS_GUI:
             values = self.blocked_tree.item(item, 'values')
             if values:
                 ip_to_unblock = values[0]
-                core_modules.FirewallManager.unblock_ip(ip_to_unblock)
+                if self.detector:
+                    self.detector.unblock_ip(ip_to_unblock)
+                else:
+                    core_modules.FirewallManager.unblock_ip(ip_to_unblock)
+                    self.blacklist.delete(ip_to_unblock)
                 self.blocked_tree.delete(item)
         
         messagebox.showinfo("Success", f"Unblocked {len(selected)} IP(s)")
@@ -596,6 +683,77 @@ class ProfessionalIPS_GUI:
     def simulate_attack(self):
         ip = f"10.50.1.{random.randint(10,99)}"
         self.gui_callback("ALERT", f"[HIGH] Blocked {ip}: Simulated SYN Flood Attack Detected")
+
+    # --- Context Menu Helpers ---
+    def show_context_menu(self, event):
+        item = self.tree.identify_row(event.y)
+        if item:
+            self.tree.selection_set(item)
+            self.context_menu.post(event.x_root, event.y_root)
+
+    def copy_from_row(self, col_index):
+        selected = self.tree.selection()
+        if selected:
+            val = self.tree.item(selected[0])['values'][col_index]
+            self.root.clipboard_clear()
+            self.root.clipboard_append(val)
+            messagebox.showinfo("Copied", f"Copied to clipboard: {val}")
+
+    def block_source_ip(self):
+        selected = self.tree.selection()
+        if selected:
+            src_ip = self.tree.item(selected[0])['values'][1]
+            try:
+                # Attempt to block via core module
+                core_modules.FirewallManager.block_ip(src_ip)
+                self.gui_callback("ALERT", (src_ip, None, "Manual Block via Context Menu", "HIGH"))
+                messagebox.showinfo("Blocked", f"IP {src_ip} has been blocked.")
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not block IP: {e}")
+
+    def view_payload(self):
+        selected = self.tree.selection()
+        if selected:
+            vals = self.tree.item(selected[0])['values']
+            # Payload is at index 9 (hidden column)
+            if len(vals) > 9:
+                payload = vals[9]
+                self.show_payload_window(payload)
+            else:
+                messagebox.showinfo("Info", "No payload captured for this packet.")
+
+    def show_payload_window(self, payload):
+        top = tk.Toplevel(self.root)
+        top.title("Packet Payload Viewer")
+        top.geometry("600x400")
+        
+        # Toolbar
+        toolbar = tk.Frame(top)
+        toolbar.pack(fill="x", side="top", padx=5, pady=5)
+        
+        def save_payload():
+            path = filedialog.asksaveasfilename(parent=top, defaultextension=".txt",
+                                              filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")])
+            if path:
+                try:
+                    with open(path, "w", encoding="utf-8") as f:
+                        f.write(payload)
+                    messagebox.showinfo("Saved", f"Payload saved to {path}", parent=top)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to save: {e}", parent=top)
+
+        ttk.Button(toolbar, text="💾 Save to File", command=save_payload).pack(side="left")
+        
+        txt = tk.Text(top, font=("Consolas", 10), wrap="word")
+        txt.pack(fill="both", expand=True)
+        
+        # Add scrollbar
+        scroll = ttk.Scrollbar(txt, command=txt.yview)
+        txt.configure(yscrollcommand=scroll.set)
+        scroll.pack(side="right", fill="y")
+        
+        txt.insert("1.0", payload)
+        txt.configure(state="disabled") # Read-only
 
 if __name__ == "__main__":
     # Check Admin

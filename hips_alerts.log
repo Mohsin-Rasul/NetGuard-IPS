@@ -1,0 +1,8 @@
+[2025-12-25 14:36:12] [WARNING] IP: local - Signature mismatch for blocked_ips.json — possible tampering
+[2025-12-26 22:58:12] [WARNING] IP: local - Signature mismatch for blocked_ips.json — possible tampering
+[2025-12-26 23:03:06] [MEDIUM] IP: 192.168.1.12 - Port Scanning Detected (Scanning)
+[2025-12-26 23:03:07] [WARNING] IP: 192.168.1.12 - Firewall block failed, retrying in 5s (attempt 2)
+[2025-12-26 23:03:12] [WARNING] IP: 192.168.1.12 - Firewall block failed, retrying in 15s (attempt 3)
+[2025-12-26 23:03:27] [WARNING] IP: 192.168.1.12 - Firewall block failed, retrying in 30s (attempt 4)
+[2025-12-26 23:03:57] [WARNING] IP: 192.168.1.12 - Firewall block failed, retrying in 60s (attempt 5)
+[2025-12-26 23:04:57] [ERROR] IP: 192.168.1.12 - Firewall block ultimately failed after 5 attempts

@@ -42,6 +42,28 @@ class BlacklistBST:
         else:
             return self.searchrecursive(node.right, ipaddress)
 
+    def delete(self, ipaddress):
+        self.root = self.deleterecursive(self.root, ipaddress)
+
+    def deleterecursive(self, node, ipaddress):
+        if node is None: return node
+        if ipaddress < node.ip:
+            node.left = self.deleterecursive(node.left, ipaddress)
+        elif ipaddress > node.ip:
+            node.right = self.deleterecursive(node.right, ipaddress)
+        else:
+            if node.left is None: return node.right
+            elif node.right is None: return node.left
+            temp = self.minvalue(node.right)
+            node.ip = temp.ip
+            node.right = self.deleterecursive(node.right, temp.ip)
+        return node
+
+    def minvalue(self, node):
+        current = node
+        while current.left is not None: current = current.left
+        return current
+
 # --- Stack (for Alerts) ---
 class StackNode:
     def __init__(self, data):

@@ -312,7 +312,14 @@ class DetectionEngine(threading.Thread):
                 self.trigger_alert(src_ip, reason, severity)
             else:
                 hostname = self.get_hostname(src_ip)
-                self.gui_callback("TRAFFIC", (src_ip, hostname, dst_ip, proto, length, sport, dport))
+                # Extract payload
+                payload_data = ""
+                if Raw in pkt:
+                    try:
+                        payload_data = pkt[Raw].load.decode('utf-8', 'replace')
+                    except:
+                        payload_data = str(pkt[Raw].load)
+                self.gui_callback("TRAFFIC", (src_ip, hostname, dst_ip, proto, length, sport, dport, payload_data))
             return
         
         # Feature 6: ARP Spoofing Prevention (Moved BEFORE IP filtering)
@@ -468,7 +475,14 @@ class DetectionEngine(threading.Thread):
             self.trigger_alert(src_ip, reason, severity)
         else:
             hostname = self.get_hostname(src_ip)
-            self.gui_callback("TRAFFIC", (src_ip, hostname, dst_ip, proto, length, sport, dport))
+            # Extract payload
+            payload_data = ""
+            if Raw in pkt:
+                try:
+                    payload_data = pkt[Raw].load.decode('utf-8', 'replace')
+                except:
+                    payload_data = str(pkt[Raw].load)
+            self.gui_callback("TRAFFIC", (src_ip, hostname, dst_ip, proto, length, sport, dport, payload_data))
 
     def trigger_alert(self, src_ip, reason, severity):
         # Immediately add to in-memory blocked list so subsequent packets
@@ -521,6 +535,15 @@ class DetectionEngine(threading.Thread):
 
         t = threading.Thread(target=_block_and_retry, args=(src_ip,), daemon=True)
         t.start()
+
+    def unblock_ip(self, ip):
+        """Unblock an IP: Remove from internal sets, BST, and OS Firewall."""
+        with self.blocked_lock:
+            if ip in self.blocked_ips:
+                self.blocked_ips.remove(ip)
+            self.blacklist.delete(ip)
+        self._save_persisted_blocks()
+        FirewallManager.unblock_ip(ip)
 
     def _save_persisted_blocks(self):
         try:

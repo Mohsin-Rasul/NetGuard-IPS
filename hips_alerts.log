@@ -8,3 +8,5 @@
 [2025-12-26 23:04:57] [ERROR] IP: 192.168.1.12 - Firewall block ultimately failed after 5 attempts
 [2025-12-29 11:04:53] [WARNING] IP: local - Signature mismatch for blocked_ips.json — possible tampering
 [2025-12-29 11:05:16] [WARNING] IP: local - Signature mismatch for blocked_ips.json — possible tampering
+[2025-12-31 20:38:01] [WARNING] IP: local - Signature mismatch for blocked_ips.json — possible tampering
+[2025-12-31 20:39:05] [WARNING] IP: local - Signature mismatch for blocked_ips.json — possible tampering

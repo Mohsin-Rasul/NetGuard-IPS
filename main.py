@@ -425,6 +425,16 @@ class ProfessionalIPS_GUI:
         if self.running: return
         self.running = True
         
+        # Verify packet capture backend (Scapy) is available
+        if not getattr(core_modules, 'SCAPY_AVAILABLE', False):
+            messagebox.showerror("Missing Dependency", (
+                "Scapy (packet capture backend) is not installed or not available.\n\n"
+                "Please install Scapy and Npcap (on Windows) or libpcap (on Unix).\n"
+                "Windows: install Npcap from https://nmap.org/npcap/ and enable 'WinPcap API-compatible' during install.\n"
+                "Then install Scapy in your Python environment: run 'pip install scapy' and restart this application."))
+            self.running = False
+            return
+
         # Start hostname resolver
         self.resolver.start()
         

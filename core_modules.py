@@ -12,8 +12,13 @@ import hashlib
 # Handle Scapy import gracefully
 try:
     from scapy.all import sniff, IP, IPv6, TCP, UDP, ARP, Raw
+    SCAPY_AVAILABLE = True
 except ImportError:
-    pass 
+    # Provide explicit fallbacks and a flag so callers can detect missing dependency
+    sniff = None
+    IP = IPv6 = TCP = UDP = ARP = Raw = None
+    SCAPY_AVAILABLE = False
+    print("[WARN] Scapy not installed or not available. Packet capture will be disabled.")
 
 # ==========================================
 # PART 2: FUNCTIONAL MODULES
@@ -109,11 +114,18 @@ class PacketCaptureThread(threading.Thread):
 
     def run(self):
         print("[SNIFFER] Started...")
+        # If Scapy is not available, exit this thread early with a clear message.
+        if not SCAPY_AVAILABLE:
+            print("[SNIFFER] Scapy unavailable: install 'scapy' and Npcap (Win) / libpcap (Unix). Exiting sniffer thread.")
+            return
+
         while not self.stop_event.is_set():
             try:
                 # Capture 1 packet at a time. Feature 1: Real-Time Packet Capture
                 sniff(count=1, prn=self.process_packet, store=0, timeout=1)
             except Exception as e:
+                # Log the error and throttle retries to avoid busy-looping
+                print(f"[SNIFFER ERROR] {e}")
                 time.sleep(2)
 
     def process_packet(self, packet):

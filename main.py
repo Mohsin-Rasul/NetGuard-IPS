@@ -14,9 +14,9 @@ except ImportError:
     psutil = None
 
 # Import Local Modules
-import data_structures
-import core_modules
-from hostname_resolver import HostnameResolver
+import dataStructures
+import coreModules
+from hostnameResolver import HostnameResolver
 
 class ProfessionalIPS_GUI:
     def __init__(self, root):
@@ -26,11 +26,11 @@ class ProfessionalIPS_GUI:
         self.root.configure(bg="#ecf0f1") 
 
         # --- Data Structures & Logic ---
-        self.blacklist = data_structures.BlacklistBST()
-        self.alerts = data_structures.AlertStack()
-        self.graph = data_structures.NetworkGraph()
-        self.pktqueue = queue.Queue()
-        self.captureddata = []
+        self.blacklist = dataStructures.BlacklistBST()
+        self.alerts = dataStructures.AlertStack()
+        self.graph = dataStructures.NetworkGraph()
+        self.pktQueue = queue.Queue()
+        self.capturedData = []
         
         self.sniffer = None
         self.detector = None
@@ -41,182 +41,182 @@ class ProfessionalIPS_GUI:
         
         # GUI State
         self.paused = tk.BooleanVar(value=False)
-        self.show_hostnames = tk.BooleanVar(value=True)
-        self.stat_packets = 0
-        self.stat_blocked = 0
-        self.stat_alerts = 0
-        self.stat_inbound = 0
-        self.stat_outbound = 0
-        self.stat_tcp = 0
-        self.stat_udp = 0
-        self.stat_icmp = 0
-        self.unique_src_ips = set()
-        self.unique_dst_ips = set()
-        self.dark_mode = False
+        self.showHostnames = tk.BooleanVar(value=True)
+        self.statPackets = 0
+        self.statBlocked = 0
+        self.statAlerts = 0
+        self.statInbound = 0
+        self.statOutbound = 0
+        self.statTcp = 0
+        self.statUdp = 0
+        self.statIcmp = 0
+        self.uniqueSrcIps = set()
+        self.uniqueDstIps = set()
+        self.darkMode = False
 
         # --- Build UI ---
-        self.setup_styles()
-        self.create_header()
-        self.create_kpi_board()
-        self.create_controls()
-        self.create_notebook()  # Tab-based interface
+        self.setupStyles()
+        self.createHeader()
+        self.createKpiBoard()
+        self.createControls()
+        self.createNotebook()  # Tab-based interface
 
-    def setup_styles(self):
+    def setupStyles(self):
         style = ttk.Style()
         style.theme_use('clam')
         
         # Modern Colors
-        self.c_bg = "#ecf0f1"
-        self.c_dark = "#2c3e50"
-        self.c_blue = "#3498db"
-        self.c_red = "#e74c3c"
-        self.c_green = "#2ecc71"
-        self.c_orange = "#f39c12"
+        self.cBg = "#ecf0f1"
+        self.cDark = "#2c3e50"
+        self.cBlue = "#3498db"
+        self.cRed = "#e74c3c"
+        self.cGreen = "#2ecc71"
+        self.cOrange = "#f39c12"
 
         # Treeview formatting
-        style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"), background="#bdc3c7", foreground=self.c_dark)
+        style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"), background="#bdc3c7", foreground=self.cDark)
         style.configure("Treeview", font=("Consolas", 10), rowheight=25, background="white")
-        style.map("Treeview", background=[('selected', self.c_blue)])
+        style.map("Treeview", background=[('selected', self.cBlue)])
 
         # Button Styling
         style.configure("TButton", font=("Segoe UI", 9))
         style.configure("Action.TButton", font=("Segoe UI", 9, "bold"))
 
-    def create_header(self):
+    def createHeader(self):
         # Top Header Bar
-        header_frame = tk.Frame(self.root, bg=self.c_dark, height=60, padx=20, pady=10)
-        header_frame.pack(fill="x")
+        headerFrame = tk.Frame(self.root, bg=self.cDark, height=60, padx=20, pady=10)
+        headerFrame.pack(fill="x")
         
         # Status LED (Canvas)
-        self.status_led = tk.Canvas(header_frame, width=20, height=20, bg=self.c_dark, highlightthickness=0)
-        self.status_led.pack(side="left", padx=(0, 10))
-        self.led_id = self.status_led.create_oval(2, 2, 18, 18, fill="#95a5a6", outline="") # Grey initially
+        self.statusLed = tk.Canvas(headerFrame, width=20, height=20, bg=self.cDark, highlightthickness=0)
+        self.statusLed.pack(side="left", padx=(0, 10))
+        self.ledId = self.statusLed.create_oval(2, 2, 18, 18, fill="#95a5a6", outline="") # Grey initially
         
         # Title
-        title_lbl = tk.Label(header_frame, text="NetGuard Security Monitor", font=("Segoe UI", 18, "bold"), bg=self.c_dark, fg="white")
-        title_lbl.pack(side="left")
+        titleLbl = tk.Label(headerFrame, text="NetGuard Security Monitor", font=("Segoe UI", 18, "bold"), bg=self.cDark, fg="white")
+        titleLbl.pack(side="left")
 
         # Version Info
-        ver_lbl = tk.Label(header_frame, text="v2.1 (Stable)", font=("Segoe UI", 10), bg=self.c_dark, fg="#bdc3c7")
-        ver_lbl.pack(side="right", anchor="s", pady=5)
+        verLbl = tk.Label(headerFrame, text="v2.1 (Stable)", font=("Segoe UI", 10), bg=self.cDark, fg="#bdc3c7")
+        verLbl.pack(side="right", anchor="s", pady=5)
 
-    def create_kpi_board(self):
+    def createKpiBoard(self):
         # Key Performance Indicators (Stats)
-        kpi_frame = tk.Frame(self.root, bg=self.c_bg, padx=20, pady=10)
-        kpi_frame.pack(fill="x")
+        kpiFrame = tk.Frame(self.root, bg=self.cBg, padx=20, pady=10)
+        kpiFrame.pack(fill="x")
 
-        self.var_pkts = tk.StringVar(value="0")
-        self.var_threats = tk.StringVar(value="0")
-        self.var_status = tk.StringVar(value="STOPPED")
-        self.var_inbound = tk.StringVar(value="0")
-        self.var_outbound = tk.StringVar(value="0")
+        self.varPkts = tk.StringVar(value="0")
+        self.varThreats = tk.StringVar(value="0")
+        self.varStatus = tk.StringVar(value="STOPPED")
+        self.varInbound = tk.StringVar(value="0")
+        self.varOutbound = tk.StringVar(value="0")
 
         # Helper to create a stat card
-        def draw_card(parent, label, var, color):
+        def drawCard(parent, label, var, color):
             card = tk.Frame(parent, bg="white", highlightbackground="#bdc3c7", highlightthickness=1)
             card.pack(side="left", fill="both", expand=True, padx=5)
             
             tk.Label(card, text=label, font=("Segoe UI", 9, "bold"), fg="#7f8c8d", bg="white").pack(pady=(10, 5))
             tk.Label(card, textvariable=var, font=("Segoe UI", 20, "bold"), fg=color, bg="white").pack(pady=(0, 10))
 
-        draw_card(kpi_frame, "SYSTEM STATUS", self.var_status, self.c_dark)
-        draw_card(kpi_frame, "PACKETS ANALYZED", self.var_pkts, self.c_blue)
-        draw_card(kpi_frame, "INBOUND TRAFFIC", self.var_inbound, self.c_green)
-        draw_card(kpi_frame, "OUTBOUND TRAFFIC", self.var_outbound, self.c_orange)
-        draw_card(kpi_frame, "THREATS BLOCKED", self.var_threats, self.c_red)
+        drawCard(kpiFrame, "SYSTEM STATUS", self.varStatus, self.cDark)
+        drawCard(kpiFrame, "PACKETS ANALYZED", self.varPkts, self.cBlue)
+        drawCard(kpiFrame, "INBOUND TRAFFIC", self.varInbound, self.cGreen)
+        drawCard(kpiFrame, "OUTBOUND TRAFFIC", self.varOutbound, self.cOrange)
+        drawCard(kpiFrame, "THREATS BLOCKED", self.varThreats, self.cRed)
 
-    def create_controls(self):
+    def createControls(self):
         # Toolbar for buttons
-        toolbar = tk.Frame(self.root, bg=self.c_bg, padx=20, pady=5)
+        toolbar = tk.Frame(self.root, bg=self.cBg, padx=20, pady=5)
         toolbar.pack(fill="x")
 
         # Left: Main Actions
-        ttk.Button(toolbar, text="▶ START MONITORING", style="Action.TButton", command=self.start_system).pack(side="left", padx=2)
-        ttk.Button(toolbar, text="⏹ STOP SYSTEM", style="Action.TButton", command=self.stop_system).pack(side="left", padx=2)
+        ttk.Button(toolbar, text="▶ START MONITORING", style="Action.TButton", command=self.startSystem).pack(side="left", padx=2)
+        ttk.Button(toolbar, text="⏹ STOP SYSTEM", style="Action.TButton", command=self.stopSystem).pack(side="left", padx=2)
         
         # Separator
-        ttk.Label(toolbar, text="  |  ", background=self.c_bg).pack(side="left")
+        ttk.Label(toolbar, text="  |  ", background=self.cBg).pack(side="left")
 
         # Middle: View Controls
         ttk.Checkbutton(toolbar, text="🔒 Pause Live View", variable=self.paused).pack(side="left", padx=10)
-        ttk.Checkbutton(toolbar, text="📍 Show Hostnames", variable=self.show_hostnames).pack(side="left", padx=10)
-        ttk.Button(toolbar, text="🗑 Clear Table", command=self.clear_table).pack(side="left", padx=2)
-        ttk.Button(toolbar, text="⬇ Sort by Size", command=self.bubblesort).pack(side="left", padx=2)
+        ttk.Checkbutton(toolbar, text="📍 Show Hostnames", variable=self.showHostnames).pack(side="left", padx=10)
+        ttk.Button(toolbar, text="🗑 Clear Table", command=self.clearTable).pack(side="left", padx=2)
+        ttk.Button(toolbar, text="⬇ Sort by Size", command=self.sortTrafficBySize).pack(side="left", padx=2)
 
         # Right: Simulation & Export
-        ttk.Button(toolbar, text="⚠ Simulate Attack", command=self.simulate_attack).pack(side="right", padx=2)
-        ttk.Button(toolbar, text="💾 Export Logs", command=self.export_logs).pack(side="right", padx=2)
-        ttk.Button(toolbar, text="🌓 Theme", command=self.toggle_theme).pack(side="right", padx=2)
+        ttk.Button(toolbar, text="⚠ Simulate Attack", command=self.simulateAttack).pack(side="right", padx=2)
+        ttk.Button(toolbar, text="💾 Export Logs", command=self.exportLogs).pack(side="right", padx=2)
+        ttk.Button(toolbar, text="🌓 Theme", command=self.toggleTheme).pack(side="right", padx=2)
 
-    def create_notebook(self):
+    def createNotebook(self):
         """Create tabbed interface with multiple views"""
         # Main Notebook (Tab Container)
         notebook = ttk.Notebook(self.root)
         notebook.pack(fill="both", expand=True, padx=20, pady=10)
         
         # Bind tab change event to refresh stats
-        notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
+        notebook.bind("<<NotebookTabChanged>>", self.onTabChanged)
 
         # --- TAB 1: LIVE TRAFFIC ---
-        self.tab_traffic = ttk.Frame(notebook)
-        notebook.add(self.tab_traffic, text="🌐 Live Traffic Monitor")
-        self.create_traffic_tab()
+        self.tabTraffic = ttk.Frame(notebook)
+        notebook.add(self.tabTraffic, text="🌐 Live Traffic Monitor")
+        self.createTrafficTab()
 
         # --- TAB 2: SECURITY ALERTS ---
-        self.tab_alerts = ttk.Frame(notebook)
-        notebook.add(self.tab_alerts, text="⚠️ Security Alerts")
-        self.create_alerts_tab()
+        self.tabAlerts = ttk.Frame(notebook)
+        notebook.add(self.tabAlerts, text="⚠️ Security Alerts")
+        self.createAlertsTab()
 
         # --- TAB 3: STATISTICS ---
-        self.tab_stats = ttk.Frame(notebook)
-        notebook.add(self.tab_stats, text="📊 Statistics & Analysis")
-        self.create_stats_tab()
+        self.tabStats = ttk.Frame(notebook)
+        notebook.add(self.tabStats, text="📊 Statistics & Analysis")
+        self.createStatsTab()
 
         # --- TAB 4: BLOCKED IPs ---
-        self.tab_blocked = ttk.Frame(notebook)
-        notebook.add(self.tab_blocked, text="🚫 Blocked IPs")
-        self.create_blocked_tab()
+        self.tabBlocked = ttk.Frame(notebook)
+        notebook.add(self.tabBlocked, text="🚫 Blocked IPs")
+        self.createBlockedTab()
 
-    def create_traffic_tab(self):
+    def createTrafficTab(self):
         """Live network traffic table with bidirectional arrows"""
-        main_frame = tk.Frame(self.tab_traffic, bg="white")
-        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        mainFrame = tk.Frame(self.tabTraffic, bg="white")
+        mainFrame.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Search/Filter Bar
-        search_frame = tk.Frame(main_frame, bg="#f0f0f0", height=40)
-        search_frame.pack(fill="x", pady=(0, 10))
+        searchFrame = tk.Frame(mainFrame, bg="#f0f0f0", height=40)
+        searchFrame.pack(fill="x", pady=(0, 10))
         
-        tk.Label(search_frame, text="Filter:", bg="#f0f0f0", font=("Segoe UI", 9)).pack(side="left", padx=5)
-        self.filter_var = tk.StringVar()
-        self.filter_var.trace_add("write", lambda *args: self.filter_traffic())
-        filter_entry = tk.Entry(search_frame, textvariable=self.filter_var, width=30, font=("Segoe UI", 9))
-        filter_entry.pack(side="left", padx=5)
+        tk.Label(searchFrame, text="Filter:", bg="#f0f0f0", font=("Segoe UI", 9)).pack(side="left", padx=5)
+        self.filterVar = tk.StringVar()
+        self.filterVar.trace_add("write", lambda *args: self.filterTraffic())
+        filterEntry = tk.Entry(searchFrame, textvariable=self.filterVar, width=30, font=("Segoe UI", 9))
+        filterEntry.pack(side="left", padx=5)
         
-        ttk.Button(search_frame, text="🔍 Clear Filter", command=lambda: self.filter_var.set("")).pack(side="left", padx=5)
+        ttk.Button(searchFrame, text="🔍 Clear Filter", command=lambda: self.filterVar.set("")).pack(side="left", padx=5)
 
         # Create container frame for table and scrollbars (use grid inside)
-        tree_container = tk.Frame(main_frame, bg="white")
-        tree_container.pack(fill="both", expand=True)
+        treeContainer = tk.Frame(mainFrame, bg="white")
+        treeContainer.pack(fill="both", expand=True)
 
         # Traffic Table with Hostname columns
         cols = ("Time", "SrcIP", "SrcHost", "DstIP", "DstHost", "Direction", "Protocol", "Size", "Process", "Payload")
-        self.tree = ttk.Treeview(tree_container, columns=cols, show="headings", selectmode="extended", height=25)
+        self.tree = ttk.Treeview(treeContainer, columns=cols, show="headings", selectmode="extended", height=25)
         self.tree["displaycolumns"] = ("Time", "SrcIP", "SrcHost", "DstIP", "DstHost", "Direction", "Protocol", "Size", "Process")
         
         # Scrollbars
-        vsb = ttk.Scrollbar(tree_container, orient="vertical", command=self.tree.yview)
-        hsb = ttk.Scrollbar(tree_container, orient="horizontal", command=self.tree.xview)
+        vsb = ttk.Scrollbar(treeContainer, orient="vertical", command=self.tree.yview)
+        hsb = ttk.Scrollbar(treeContainer, orient="horizontal", command=self.tree.xview)
         self.tree.configure(yscroll=vsb.set, xscroll=hsb.set)
 
         self.tree.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
         hsb.grid(row=1, column=0, sticky="ew")
         
-        tree_container.grid_rowconfigure(0, weight=1)
-        tree_container.grid_columnconfigure(0, weight=1)
+        treeContainer.grid_rowconfigure(0, weight=1)
+        treeContainer.grid_columnconfigure(0, weight=1)
 
         # Configure Columns
-        columns_config = [
+        columnsConfig = [
             ("Time", 70, "center"),
             ("SrcIP", 110, "w"),
             ("SrcHost", 100, "w"),
@@ -228,7 +228,7 @@ class ProfessionalIPS_GUI:
             ("Process", 120, "w")
         ]
         
-        for col, width, anchor in columns_config:
+        for col, width, anchor in columnsConfig:
             self.tree.heading(col, text=col)
             self.tree.column(col, width=width, anchor=anchor)
 
@@ -240,193 +240,188 @@ class ProfessionalIPS_GUI:
         self.tree.tag_configure('INBOUND', foreground="#c0392b")
 
         # Context Menu
-        self.context_menu = tk.Menu(self.tree, tearoff=0)
-        self.context_menu.add_command(label="📋 Copy Source IP", command=lambda: self.copy_from_row(1))
-        self.context_menu.add_command(label="📋 Copy Destination IP", command=lambda: self.copy_from_row(3))
-        self.context_menu.add_separator()
-        self.context_menu.add_command(label="🔍 View Packet Payload", command=self.view_payload)
-        self.context_menu.add_command(label=" Block Source IP", command=self.block_source_ip)
-        self.tree.bind("<Button-3>", self.show_context_menu)
+        self.contextMenu = tk.Menu(self.tree, tearoff=0)
+        self.contextMenu.add_command(label="📋 Copy Source IP", command=lambda: self.copyFromRow(1))
+        self.contextMenu.add_command(label="📋 Copy Destination IP", command=lambda: self.copyFromRow(3))
+        self.contextMenu.add_separator()
+        self.contextMenu.add_command(label="🔍 View Packet Payload", command=self.viewPayload)
+        self.contextMenu.add_command(label=" Block Source IP", command=self.blockSourceIp)
+        self.tree.bind("<Button-3>", self.showContextMenu)
 
-    def create_alerts_tab(self):
+    def createAlertsTab(self):
         """Security alerts and threat log"""
-        main_frame = tk.Frame(self.tab_alerts, bg="white")
-        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        mainFrame = tk.Frame(self.tabAlerts, bg="white")
+        mainFrame.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Alert Info Bar
-        info_frame = tk.Frame(main_frame, bg="#fff3cd", padx=10, pady=8)
-        info_frame.pack(fill="x", pady=(0, 10))
-        tk.Label(info_frame, text="🔔 Real-time Security Alerts & Blocked Connections", 
+        infoFrame = tk.Frame(mainFrame, bg="#fff3cd", padx=10, pady=8)
+        infoFrame.pack(fill="x", pady=(0, 10))
+        tk.Label(infoFrame, text="🔔 Real-time Security Alerts & Blocked Connections", 
                 font=("Segoe UI", 10, "bold"), bg="#fff3cd", fg="#856404").pack(anchor="w")
 
         # Clear button
-        btn_frame = tk.Frame(main_frame, bg="white")
-        btn_frame.pack(fill="x", pady=(0, 5))
-        ttk.Button(btn_frame, text="🗑 Clear All Alerts", command=self.clear_logs).pack(side="right")
+        btnFrame = tk.Frame(mainFrame, bg="white")
+        btnFrame.pack(fill="x", pady=(0, 5))
+        ttk.Button(btnFrame, text="🗑 Clear All Alerts", command=self.clearLogs).pack(side="right")
 
         # Alert Listbox with colors
-        self.log_list = tk.Listbox(main_frame, font=("Consolas", 9), bg="#fef5e7", fg="#c0392b", 
+        self.logList = tk.Listbox(mainFrame, font=("Consolas", 9), bg="#fef5e7", fg="#c0392b", 
                                    borderwidth=1, highlightthickness=0, selectmode="extended")
-        self.log_list.pack(fill="both", expand=True)
+        self.logList.pack(fill="both", expand=True)
         
         # Scrollbar
-        scrollbar = ttk.Scrollbar(main_frame, orient="vertical", command=self.log_list.yview)
-        self.log_list.configure(yscroll=scrollbar.set)
+        scrollbar = ttk.Scrollbar(mainFrame, orient="vertical", command=self.logList.yview)
+        self.logList.configure(yscroll=scrollbar.set)
 
-    def create_stats_tab(self):
+    def createStatsTab(self):
         """Statistics and analysis view"""
-        main_frame = tk.Frame(self.tab_stats, bg="white")
-        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        mainFrame = tk.Frame(self.tabStats, bg="white")
+        mainFrame.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Stats Grid with proper container
-        stats_container = tk.Frame(main_frame, bg="white")
-        stats_container.pack(fill="x", pady=20)
+        statsContainer = tk.Frame(mainFrame, bg="white")
+        statsContainer.pack(fill="x", pady=20)
 
-        self.stat_vars = {}
-        stats_data = [
-            ("Total Packets Captured", "total_pkts", self.c_blue),
-            ("Inbound Packets", "inbound_pkts", self.c_green),
-            ("Outbound Packets", "outbound_pkts", self.c_orange),
-            ("Threats Detected", "threats", self.c_red),
-            ("Unique Source IPs", "unique_src", "#9b59b6"),
-            ("Unique Dest IPs", "unique_dst", "#1abc9c"),
-            ("TCP Packets", "tcp_pkts", "#2980b9"),
-            ("UDP Packets", "udp_pkts", "#8e44ad"),
+        self.statVars = {}
+        statsData = [
+            ("Total Packets Captured", "totalPkts", self.cBlue),
+            ("Inbound Packets", "inboundPkts", self.cGreen),
+            ("Outbound Packets", "outboundPkts", self.cOrange),
+            ("Threats Detected", "threats", self.cRed),
+            ("Unique Source IPs", "uniqueSrc", "#9b59b6"),
+            ("Unique Dest IPs", "uniqueDst", "#1abc9c"),
+            ("TCP Packets", "tcpPkts", "#2980b9"),
+            ("UDP Packets", "udpPkts", "#8e44ad"),
         ]
 
-        for idx, (label, key, color) in enumerate(stats_data):
-            self.stat_vars[key] = tk.StringVar(value="0")
+        for idx, (label, key, color) in enumerate(statsData):
+            self.statVars[key] = tk.StringVar(value="0")
             row = idx // 2
             col = idx % 2
             
-            stat_frame = tk.Frame(stats_container, bg="white", padx=20, pady=15)
-            stat_frame.grid(row=row, column=col, sticky="ew")
+            statFrame = tk.Frame(statsContainer, bg="white", padx=20, pady=15)
+            statFrame.grid(row=row, column=col, sticky="ew")
             
-            tk.Label(stat_frame, text=label, font=("Segoe UI", 11, "bold"), bg="white", fg="#2c3e50").pack(anchor="w")
-            tk.Label(stat_frame, textvariable=self.stat_vars[key], font=("Segoe UI", 24, "bold"), bg="white", fg=color).pack(anchor="w")
+            tk.Label(statFrame, text=label, font=("Segoe UI", 11, "bold"), bg="white", fg="#2c3e50").pack(anchor="w")
+            tk.Label(statFrame, textvariable=self.statVars[key], font=("Segoe UI", 24, "bold"), bg="white", fg=color).pack(anchor="w")
 
-        stats_container.grid_columnconfigure(0, weight=1)
-        stats_container.grid_columnconfigure(1, weight=1)
+        statsContainer.grid_columnconfigure(0, weight=1)
+        statsContainer.grid_columnconfigure(1, weight=1)
 
-    def create_blocked_tab(self):
+    def createBlockedTab(self):
         """Blocked IPs management"""
-        main_frame = tk.Frame(self.tab_blocked, bg="white")
-        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+        mainFrame = tk.Frame(self.tabBlocked, bg="white")
+        mainFrame.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Action buttons
-        btn_frame = tk.Frame(main_frame, bg="white")
-        btn_frame.pack(fill="x", pady=(0, 10))
-        ttk.Button(btn_frame, text="✖ Unblock Selected", command=self.unblock_selected).pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="🔄 Refresh List", command=self.refresh_blocked_list).pack(side="left", padx=5)
-        ttk.Button(btn_frame, text="🗑 Clear All", command=self.clear_blocked_list).pack(side="right", padx=5)
+        btnFrame = tk.Frame(mainFrame, bg="white")
+        btnFrame.pack(fill="x", pady=(0, 10))
+        ttk.Button(btnFrame, text="✖ Unblock Selected", command=self.unblockSelected).pack(side="left", padx=5)
+        ttk.Button(btnFrame, text="🔄 Refresh List", command=self.refreshBlockedList).pack(side="left", padx=5)
+        ttk.Button(btnFrame, text="🗑 Clear All", command=self.clearBlockedList).pack(side="right", padx=5)
 
         # Create container for tree and scrollbars
-        tree_container = tk.Frame(main_frame, bg="white")
-        tree_container.pack(fill="both", expand=True)
+        treeContainer = tk.Frame(mainFrame, bg="white")
+        treeContainer.pack(fill="both", expand=True)
 
         # Blocked IPs List
         cols = ("IP Address", "Block Date", "Reason", "Status")
-        self.blocked_tree = ttk.Treeview(tree_container, columns=cols, show="headings", selectmode="extended", height=20)
+        self.blockedTree = ttk.Treeview(treeContainer, columns=cols, show="headings", selectmode="extended", height=20)
         
-        vsb = ttk.Scrollbar(tree_container, orient="vertical", command=self.blocked_tree.yview)
-        hsb = ttk.Scrollbar(tree_container, orient="horizontal", command=self.blocked_tree.xview)
-        self.blocked_tree.configure(yscroll=vsb.set, xscroll=hsb.set)
+        vsb = ttk.Scrollbar(treeContainer, orient="vertical", command=self.blockedTree.yview)
+        hsb = ttk.Scrollbar(treeContainer, orient="horizontal", command=self.blockedTree.xview)
+        self.blockedTree.configure(yscroll=vsb.set, xscroll=hsb.set)
 
-        self.blocked_tree.grid(row=0, column=0, sticky="nsew")
+        self.blockedTree.grid(row=0, column=0, sticky="nsew")
         vsb.grid(row=0, column=1, sticky="ns")
         hsb.grid(row=1, column=0, sticky="ew")
         
-        tree_container.grid_rowconfigure(0, weight=1)
-        tree_container.grid_columnconfigure(0, weight=1)
+        treeContainer.grid_rowconfigure(0, weight=1)
+        treeContainer.grid_columnconfigure(0, weight=1)
 
         for col, width in [("IP Address", 150), ("Block Date", 150), ("Reason", 200), ("Status", 80)]:
-            self.blocked_tree.heading(col, text=col)
-            self.blocked_tree.column(col, width=width)
-
-    def create_split_view(self):
-        """Legacy method - replaced by create_notebook"""
-        pass
-
+            self.blockedTree.heading(col, text=col)
+            self.blockedTree.column(col, width=width)
 
     # --- Logic ---
 
-    def on_tab_changed(self, event):
+    def onTabChanged(self, event):
         """Refresh stats when stats tab is selected"""
-        self.refresh_stats_display()
+        self.refreshStatsDisplay()
 
-    def refresh_stats_display(self):
+    def refreshStatsDisplay(self):
         """Update stats display values"""
-        if hasattr(self, 'stat_vars'):
-            self.stat_vars['total_pkts'].set(f"{self.stat_packets:,}")
-            self.stat_vars['inbound_pkts'].set(f"{self.stat_inbound:,}")
-            self.stat_vars['outbound_pkts'].set(f"{self.stat_outbound:,}")
-            self.stat_vars['threats'].set(f"{self.stat_blocked}")
-            self.stat_vars['unique_src'].set(f"{len(self.unique_src_ips)}")
-            self.stat_vars['unique_dst'].set(f"{len(self.unique_dst_ips)}")
-            if 'tcp_pkts' in self.stat_vars:
-                self.stat_vars['tcp_pkts'].set(f"{self.stat_tcp:,}")
-                self.stat_vars['udp_pkts'].set(f"{self.stat_udp:,}")
+        if hasattr(self, 'statVars'):
+            self.statVars['totalPkts'].set(f"{self.statPackets:,}")
+            self.statVars['inboundPkts'].set(f"{self.statInbound:,}")
+            self.statVars['outboundPkts'].set(f"{self.statOutbound:,}")
+            self.statVars['threats'].set(f"{self.statBlocked}")
+            self.statVars['uniqueSrc'].set(f"{len(self.uniqueSrcIps)}")
+            self.statVars['uniqueDst'].set(f"{len(self.uniqueDstIps)}")
+            if 'tcpPkts' in self.statVars:
+                self.statVars['tcpPkts'].set(f"{self.statTcp:,}")
+                self.statVars['udpPkts'].set(f"{self.statUdp:,}")
 
-    def toggle_theme(self):
-        self.dark_mode = not self.dark_mode
+    def toggleTheme(self):
+        self.darkMode = not self.darkMode
         
         # Define Colors
-        if self.dark_mode:
-            self.c_bg = "#2c3e50"
-            self.c_dark = "#1a252f"
-            panel_bg = "#34495e"
-            self.c_fg = "#ecf0f1"
-            tree_bg = "#34495e"
-            tree_fg = "#ecf0f1"
+        if self.darkMode:
+            self.cBg = "#2c3e50"
+            self.cDark = "#1a252f"
+            panelBg = "#34495e"
+            self.cFg = "#ecf0f1"
+            treeBg = "#34495e"
+            treeFg = "#ecf0f1"
         else:
-            self.c_bg = "#ecf0f1"
-            self.c_dark = "#2c3e50"
-            panel_bg = "white"
-            self.c_fg = "#2c3e50"
-            tree_bg = "white"
-            tree_fg = "black"
+            self.cBg = "#ecf0f1"
+            self.cDark = "#2c3e50"
+            panelBg = "white"
+            self.cFg = "#2c3e50"
+            treeBg = "white"
+            treeFg = "black"
 
         # Apply to Root
-        self.root.configure(bg=self.c_bg)
+        self.root.configure(bg=self.cBg)
         
         # Apply to Styles
         style = ttk.Style()
-        style.configure("Treeview", background=tree_bg, foreground=tree_fg, fieldbackground=tree_bg)
-        style.configure("Treeview.Heading", background=self.c_dark, foreground="white")
+        style.configure("Treeview", background=treeBg, foreground=treeFg, fieldbackground=treeBg)
+        style.configure("Treeview.Heading", background=self.cDark, foreground="white")
         
         # Recursive Update
-        self.update_gui_recursive(self.root, panel_bg)
+        self.updateGuiRecursive(self.root, panelBg)
 
-    def update_gui_recursive(self, widget, panel_bg):
+    def updateGuiRecursive(self, widget, panelBg):
         try:
             wtype = widget.winfo_class()
             bg = widget.cget('bg')
             
-            if self.dark_mode:
+            if self.darkMode:
                 # Switching TO Dark
-                if bg == "#ecf0f1": widget.configure(bg=self.c_bg)
-                elif bg == "#2c3e50": widget.configure(bg=self.c_dark)
-                elif bg in ["white", "#ffffff", "#f0f0f0"]: widget.configure(bg=panel_bg)
+                if bg == "#ecf0f1": widget.configure(bg=self.cBg)
+                elif bg == "#2c3e50": widget.configure(bg=self.cDark)
+                elif bg in ["white", "#ffffff", "#f0f0f0"]: widget.configure(bg=panelBg)
                 if wtype in ['Label', 'Listbox'] and widget.cget('fg') in ["black", "#2c3e50"]:
-                    widget.configure(fg=self.c_fg)
+                    widget.configure(fg=self.cFg)
             else:
                 # Switching TO Light
-                if bg == "#2c3e50": widget.configure(bg=self.c_bg)
-                elif bg == "#1a252f": widget.configure(bg=self.c_dark)
-                elif bg == "#34495e": widget.configure(bg=panel_bg)
+                if bg == "#2c3e50": widget.configure(bg=self.cBg)
+                elif bg == "#1a252f": widget.configure(bg=self.cDark)
+                elif bg == "#34495e": widget.configure(bg=panelBg)
                 if wtype in ['Label', 'Listbox'] and widget.cget('fg') in ["white", "#ecf0f1"]:
-                    widget.configure(fg=self.c_fg)
+                    widget.configure(fg=self.cFg)
         except: pass
         
         for child in widget.winfo_children():
-            self.update_gui_recursive(child, panel_bg)
+            self.updateGuiRecursive(child, panelBg)
 
-    def start_system(self):
+    def startSystem(self):
         if self.running: return
         self.running = True
         
         # Verify packet capture backend (Scapy) is available
-        if not getattr(core_modules, 'SCAPY_AVAILABLE', False):
+        if not getattr(coreModules, 'SCAPY_AVAILABLE', False):
             messagebox.showerror("Missing Dependency", (
                 "Scapy (packet capture backend) is not installed or not available.\n\n"
                 "Please install Scapy and Npcap (on Windows) or libpcap (on Unix).\n"
@@ -439,49 +434,49 @@ class ProfessionalIPS_GUI:
         self.resolver.start()
         
         # UI Updates
-        self.status_led.itemconfig(self.led_id, fill=self.c_green) # Turn Green
-        self.var_status.set("🟢 ACTIVE")
+        self.statusLed.itemconfig(self.ledId, fill=self.cGreen) # Turn Green
+        self.varStatus.set("🟢 ACTIVE")
         
         # Init Backend
-        self.detector = core_modules.DetectionEngine(
-            self.pktqueue, self.gui_callback, self.blacklist, self.alerts, analyze_local=True
+        self.detector = coreModules.DetectionEngine(
+            self.pktQueue, self.guiCallback, self.blacklist, self.alerts, analyzeLocal=True
         )
-        self.sniffer = core_modules.PacketCaptureThread(self.pktqueue)
+        self.sniffer = coreModules.PacketCaptureThread(self.pktQueue)
         
         self.detector.start()
         self.sniffer.start()
         
         messagebox.showinfo("System Started", "Network monitoring started. Capturing live traffic...")
 
-    def stop_system(self):
+    def stopSystem(self):
         self.running = False
         
         # Stop resolver
         self.resolver.stop()
         
         # UI Updates
-        self.status_led.itemconfig(self.led_id, fill=self.c_red) # Turn Red
-        self.var_status.set("🔴 STOPPED")
+        self.statusLed.itemconfig(self.ledId, fill=self.cRed) # Turn Red
+        self.varStatus.set("🔴 STOPPED")
         
         if self.sniffer: self.sniffer.stop()
         if self.detector: self.detector.stop()
         
         messagebox.showinfo("System Stopped", "Network monitoring stopped.")
 
-    def gui_callback(self, msgtype, data):
+    def guiCallback(self, msgType, data):
         # Thread-safe GUI update
-        self.root.after(0, lambda: self.handle_update(msgtype, data))
+        self.root.after(0, lambda: self.handleUpdate(msgType, data))
 
-    def handle_update(self, msgtype, data):
+    def handleUpdate(self, msgType, data):
         timestamp = time.strftime("%H:%M:%S")
 
-        if msgtype == "TRAFFIC":
-            self.stat_packets += 1
-            self.var_pkts.set(f"{self.stat_packets:,}")
+        if msgType == "TRAFFIC":
+            self.statPackets += 1
+            self.varPkts.set(f"{self.statPackets:,}")
             
             # Update stats tab total packets
-            if hasattr(self, 'stat_vars'):
-                self.stat_vars['total_pkts'].set(f"{self.stat_packets:,}")
+            if hasattr(self, 'statVars'):
+                self.statVars['totalPkts'].set(f"{self.statPackets:,}")
 
             if self.paused.get(): return # Skip table update if paused
 
@@ -495,71 +490,70 @@ class ProfessionalIPS_GUI:
                 src, dst, proto, size, sport, dport = data
 
             # Track unique IPs
-            self.unique_src_ips.add(src)
-            self.unique_dst_ips.add(dst)
-            if hasattr(self, 'stat_vars'):
-                self.stat_vars['unique_src'].set(f"{len(self.unique_src_ips)}")
-                self.stat_vars['unique_dst'].set(f"{len(self.unique_dst_ips)}")
+            self.uniqueSrcIps.add(src)
+            self.uniqueDstIps.add(dst)
+            if hasattr(self, 'statVars'):
+                self.statVars['uniqueSrc'].set(f"{len(self.uniqueSrcIps)}")
+                self.statVars['uniqueDst'].set(f"{len(self.uniqueDstIps)}")
 
             # Update Protocol Stats
-            if 'TCP' in proto: self.stat_tcp += 1
-            elif 'UDP' in proto: self.stat_udp += 1
-            elif 'ICMP' in proto: self.stat_icmp += 1
-            self.refresh_stats_display()
+            if 'TCP' in proto: self.statTcp += 1
+            elif 'UDP' in proto: self.statUdp += 1
+            elif 'ICMP' in proto: self.statIcmp += 1
+            self.refreshStatsDisplay()
 
             # Determine traffic direction (basic heuristic)
-            # Private IP ranges: 10.x, 172.16-31.x, 192.168.x, 127.x
-            is_src_private = self.is_private_ip(src)
-            is_dst_private = self.is_private_ip(dst)
+            isSrcPrivate = self.isPrivateIp(src)
+            isDstPrivate = self.isPrivateIp(dst)
             
-            if is_src_private and not is_dst_private:
+            if isSrcPrivate and not isDstPrivate:
                 direction = "↗️ OUT"
-                self.stat_outbound += 1
-                self.var_outbound.set(f"{self.stat_outbound:,}")
-                if hasattr(self, 'stat_vars'):
-                    self.stat_vars['outbound_pkts'].set(f"{self.stat_outbound:,}")
-            elif not is_src_private and is_dst_private:
+                self.statOutbound += 1
+                self.varOutbound.set(f"{self.statOutbound:,}")
+                if hasattr(self, 'statVars'):
+                    self.statVars['outboundPkts'].set(f"{self.statOutbound:,}")
+            elif not isSrcPrivate and isDstPrivate:
                 direction = "↙️ IN"
-                self.stat_inbound += 1
-                self.var_inbound.set(f"{self.stat_inbound:,}")
-                if hasattr(self, 'stat_vars'):
-                    self.stat_vars['inbound_pkts'].set(f"{self.stat_inbound:,}")
+                self.statInbound += 1
+                self.varInbound.set(f"{self.statInbound:,}")
+                if hasattr(self, 'statVars'):
+                    self.statVars['inboundPkts'].set(f"{self.statInbound:,}")
             else:
                 direction = "↔️ LOCAL"
 
             # Get Hostnames (with fallback to IP)
-            src_host = self.resolver.get_hostname(src) if self.show_hostnames.get() else src
-            dst_host = self.resolver.get_hostname(dst) if self.show_hostnames.get() else dst
+            srcHost = self.resolver.get_hostname(src) if self.showHostnames.get() else src
+            dstHost = self.resolver.get_hostname(dst) if self.showHostnames.get() else dst
 
             # Get Process Name
-            proc_name = "-"
+            procName = "-"
             if psutil:
                 try:
                     for conn in psutil.net_connections():
                         if conn.laddr.port == sport or conn.laddr.port == dport:
-                            proc_name = psutil.Process(conn.pid).name()
+                            procName = psutil.Process(conn.pid).name()
                             break
                 except: pass
 
-            row = (timestamp, src, src_host, dst, dst_host, direction, proto, size, proc_name, payload)
-            self.captureddata.append(row)
+            row = (timestamp, src, srcHost, dst, dstHost, direction, proto, size, procName, payload)
+            self.capturedData.append(row)
 
             # Insert into table
-            tag_proto = 'TCP' if 'TCP' in proto else ('UDP' if 'UDP' in proto else 'ICMP')
-            tag_dir = 'OUTBOUND' if '↗️' in direction else ('INBOUND' if '↙️' in direction else '')
-            self.tree.insert("", 0, values=row, tags=(tag_proto, tag_dir))
+            tagProto = 'TCP' if 'TCP' in proto else ('UDP' if 'UDP' in proto else 'ICMP')
+            tagDir = 'OUTBOUND' if '↗️' in direction else ('INBOUND' if '↙️' in direction else '')
+            self.tree.insert("", 0, values=row, tags=(tagProto, tagDir))
             
             # Buffer Management (Keep list manageable)
             if len(self.tree.get_children()) > 200:
                 self.tree.delete(self.tree.get_children()[-1])
 
-        elif msgtype == "ALERT":
-            self.stat_blocked += 1
-            self.var_threats.set(f"{self.stat_blocked}")
+        elif msgType == "ALERT":
+            self.statBlocked += 1
+            self.varThreats.set(f"{self.statBlocked}")
             
             # Update stats tab threats
-            if hasattr(self, 'stat_vars'):
-                self.stat_vars['threats'].set(f"{self.stat_blocked}")
+            if hasattr(self, 'statVars'):
+                self.statVars['threats'].set(f"{self.statBlocked}")
 
             # Handle formats
             if isinstance(data, tuple):
@@ -568,12 +562,12 @@ class ProfessionalIPS_GUI:
             else:
                 msg = data
             
-            self.log_list.insert(0, f"[{timestamp}] {msg}")
+            self.logList.insert(0, f"[{timestamp}] {msg}")
 
-    def is_private_ip(self, ip_address):
+    def isPrivateIp(self, ipAddress):
         """Check if IP is in private ranges"""
         try:
-            parts = [int(x) for x in ip_address.split('.')]
+            parts = [int(x) for x in ipAddress.split('.')]
             if parts[0] == 10: return True
             if parts[0] == 172 and 16 <= parts[1] <= 31: return True
             if parts[0] == 192 and parts[1] == 168: return True
@@ -583,65 +577,64 @@ class ProfessionalIPS_GUI:
         except:
             return False
 
-    def filter_traffic(self):
+    def filterTraffic(self):
         """Filter table by search term"""
-        search_term = self.filter_var.get().lower()
+        searchTerm = self.filterVar.get().lower()
         for item in self.tree.get_children():
             self.tree.delete(item)
         
-        for row in self.captureddata:
-            if not search_term or any(search_term in str(val).lower() for val in row):
-                tag_proto = 'TCP' if 'TCP' in row[6] else ('UDP' if 'UDP' in row[6] else 'ICMP')
-                tag_dir = 'OUTBOUND' if '↗️' in row[5] else ('INBOUND' if '↙️' in row[5] else '')
-                self.tree.insert("", "end", values=row, tags=(tag_proto, tag_dir))
+        for row in self.capturedData:
+            if not searchTerm or any(searchTerm in str(val).lower() for val in row):
+                tagProto = 'TCP' if 'TCP' in row[6] else ('UDP' if 'UDP' in row[6] else 'ICMP')
+                tagDir = 'OUTBOUND' if '↗️' in row[5] else ('INBOUND' if '↙️' in row[5] else '')
+                self.tree.insert("", "end", values=row, tags=(tagProto, tagDir))
 
-    def clear_table(self):
+    def clearTable(self):
         self.tree.delete(*self.tree.get_children())
-        self.captureddata.clear()
-        self.var_pkts.set("0")
-        self.stat_packets = 0
+        self.capturedData.clear()
+        self.varPkts.set("0")
+        self.statPackets = 0
 
-    def clear_logs(self):
-        self.log_list.delete(0, tk.END)
-        self.var_threats.set("0")
-        self.stat_blocked = 0
+    def clearLogs(self):
+        self.logList.delete(0, tk.END)
+        self.varThreats.set("0")
+        self.statBlocked = 0
 
-    def unblock_selected(self):
-        selected = self.blocked_tree.selection()
+    def unblockSelected(self):
+        selected = self.blockedTree.selection()
         if not selected:
             messagebox.showwarning("No Selection", "Please select IPs to unblock.")
             return
         
         for item in selected:
-            values = self.blocked_tree.item(item, 'values')
+            values = self.blockedTree.item(item, 'values')
             if values:
-                ip_to_unblock = values[0]
+                ipToUnblock = values[0]
                 if self.detector:
-                    self.detector.unblock_ip(ip_to_unblock)
+                    self.detector.unblock_ip(ipToUnblock)
                 else:
-                    core_modules.FirewallManager.unblock_ip(ip_to_unblock)
-                    self.blacklist.delete(ip_to_unblock)
-                self.blocked_tree.delete(item)
+                    coreModules.FirewallManager.unblock_ip(ipToUnblock)
+                    self.blacklist.delete(ipToUnblock)
+                self.blockedTree.delete(item)
         
         messagebox.showinfo("Success", f"Unblocked {len(selected)} IP(s)")
 
-    def refresh_blocked_list(self):
+    def refreshBlockedList(self):
         """Refresh the blocked IPs list"""
-        self.blocked_tree.delete(*self.blocked_tree.get_children())
-        # Populate from data structure
-        for ip in self.get_blocked_ips():
-            self.blocked_tree.insert("", "end", values=(ip, "N/A", "Security", "🔒 Active"))
+        self.blockedTree.delete(*self.blockedTree.get_children())
+        for ip in self.getBlockedIps():
+            self.blockedTree.insert("", "end", values=(ip, "N/A", "Security", "🔒 Active"))
 
-    def clear_blocked_list(self):
+    def clearBlockedList(self):
         """Clear all blocked IPs"""
         if messagebox.askyesno("Confirm", "Unblock ALL IPs?"):
-            for item in self.blocked_tree.get_children():
-                values = self.blocked_tree.item(item, 'values')
+            for item in self.blockedTree.get_children():
+                values = self.blockedTree.item(item, 'values')
                 if values:
-                    core_modules.FirewallManager.unblock_ip(values[0])
-            self.blocked_tree.delete(*self.blocked_tree.get_children())
+                    coreModules.FirewallManager.unblock_ip(values[0])
+            self.blockedTree.delete(*self.blockedTree.get_children())
 
-    def get_blocked_ips(self):
+    def getBlockedIps(self):
         """Extract blocked IPs from BST (traverse in-order)"""
         result = []
         def traverse(node):
@@ -653,95 +646,87 @@ class ProfessionalIPS_GUI:
         traverse(self.blacklist.root)
         return result
 
-    def bubblesort(self):
-        data = self.captureddata
-        n = len(data)
-        # Bubble Sort implementation - sort by Size (index 7)
-        for i in range(n):
-            for j in range(0, n - i - 1):
-                if int(data[j][7]) < int(data[j + 1][7]):
-                    data[j], data[j + 1] = data[j + 1], data[j]
+    def sortTrafficBySize(self):
+        """Sort data using built-in Timsort for efficiency"""
+        if not self.capturedData:
+            return
         
-        # Redraw Table
+        self.capturedData.sort(key=lambda x: int(x[7]), reverse=True)
+        
         self.tree.delete(*self.tree.get_children())
-        for row in data:
-            tag_proto = 'TCP' if 'TCP' in row[6] else ('UDP' if 'UDP' in row[6] else 'ICMP')
-            tag_dir = 'OUTBOUND' if '↗️' in row[5] else ('INBOUND' if '↙️' in row[5] else '')
-            self.tree.insert("", "end", values=row, tags=(tag_proto, tag_dir))
+        for row in self.capturedData:
+            tagProto = 'TCP' if 'TCP' in row[6] else ('UDP' if 'UDP' in row[6] else 'ICMP')
+            tagDir = 'OUTBOUND' if '↗️' in row[5] else ('INBOUND' if '↙️' in row[5] else '')
+            self.tree.insert("", "end", values=row, tags=(tagProto, tagDir))
         
-        messagebox.showinfo("Sorted", f"Sorted {n} packets by Size (Descending).")
+        messagebox.showinfo("Sorted", f"Sorted {len(self.capturedData)} packets by Size.")
 
-    def export_logs(self):
+    def exportLogs(self):
         """Export current traffic data to CSV"""
-        if not self.captureddata:
+        if not self.capturedData:
             messagebox.showwarning("No Data", "No traffic captured yet.")
             return
         
         try:
             filename = f"netguard_export_{time.strftime('%Y%m%d_%H%M%S')}.csv"
             with open(filename, 'w') as f:
-                # Header
                 f.write("Time,SourceIP,SourceHost,DestIP,DestHost,Direction,Protocol,SizeBytes,Process\n")
-                # Data
-                for row in self.captureddata:
+                for row in self.capturedData:
                     f.write(",".join(str(v) for v in row) + "\n")
             
             messagebox.showinfo("Export Successful", f"Data exported to {filename}")
         except Exception as e:
             messagebox.showerror("Export Failed", str(e))
 
-    def simulate_attack(self):
+    def simulateAttack(self):
         ip = f"10.50.1.{random.randint(10,99)}"
-        self.gui_callback("ALERT", f"[HIGH] Blocked {ip}: Simulated SYN Flood Attack Detected")
+        self.guiCallback("ALERT", f"[HIGH] Blocked {ip}: Simulated SYN Flood Attack Detected")
 
     # --- Context Menu Helpers ---
-    def show_context_menu(self, event):
+    def showContextMenu(self, event):
         item = self.tree.identify_row(event.y)
         if item:
             self.tree.selection_set(item)
-            self.context_menu.post(event.x_root, event.y_root)
+            self.contextMenu.post(event.x_root, event.y_root)
 
-    def copy_from_row(self, col_index):
+    def copyFromRow(self, colIndex):
         selected = self.tree.selection()
         if selected:
-            val = self.tree.item(selected[0])['values'][col_index]
+            val = self.tree.item(selected[0])['values'][colIndex]
             self.root.clipboard_clear()
             self.root.clipboard_append(val)
             messagebox.showinfo("Copied", f"Copied to clipboard: {val}")
 
-    def block_source_ip(self):
+    def blockSourceIp(self):
         selected = self.tree.selection()
         if selected:
-            src_ip = self.tree.item(selected[0])['values'][1]
+            srcIp = self.tree.item(selected[0])['values'][1]
             try:
-                # Attempt to block via core module
-                core_modules.FirewallManager.block_ip(src_ip)
-                self.gui_callback("ALERT", (src_ip, None, "Manual Block via Context Menu", "HIGH"))
-                messagebox.showinfo("Blocked", f"IP {src_ip} has been blocked.")
+                coreModules.FirewallManager.block_ip(srcIp)
+                self.guiCallback("ALERT", (srcIp, None, "Manual Block via Context Menu", "HIGH"))
+                messagebox.showinfo("Blocked", f"IP {srcIp} has been blocked.")
             except Exception as e:
                 messagebox.showerror("Error", f"Could not block IP: {e}")
 
-    def view_payload(self):
+    def viewPayload(self):
         selected = self.tree.selection()
         if selected:
             vals = self.tree.item(selected[0])['values']
-            # Payload is at index 9 (hidden column)
             if len(vals) > 9:
                 payload = vals[9]
-                self.show_payload_window(payload)
+                self.showPayloadWindow(payload)
             else:
                 messagebox.showinfo("Info", "No payload captured for this packet.")
 
-    def show_payload_window(self, payload):
+    def showPayloadWindow(self, payload):
         top = tk.Toplevel(self.root)
         top.title("Packet Payload Viewer")
         top.geometry("600x400")
         
-        # Toolbar
         toolbar = tk.Frame(top)
         toolbar.pack(fill="x", side="top", padx=5, pady=5)
         
-        def save_payload():
+        def savePayload():
             path = filedialog.asksaveasfilename(parent=top, defaultextension=".txt",
                                               filetypes=[("Text Files", "*.txt"), ("All Files", "*.*")])
             if path:
@@ -752,21 +737,18 @@ class ProfessionalIPS_GUI:
                 except Exception as e:
                     messagebox.showerror("Error", f"Failed to save: {e}", parent=top)
 
-        ttk.Button(toolbar, text="💾 Save to File", command=save_payload).pack(side="left")
+        ttk.Button(toolbar, text="💾 Save to File", command=savePayload).pack(side="left")
         
         txt = tk.Text(top, font=("Consolas", 10), wrap="word")
         txt.pack(fill="both", expand=True)
-        
-        # Add scrollbar
         scroll = ttk.Scrollbar(txt, command=txt.yview)
         txt.configure(yscrollcommand=scroll.set)
         scroll.pack(side="right", fill="y")
         
         txt.insert("1.0", payload)
-        txt.configure(state="disabled") # Read-only
+        txt.configure(state="disabled")
 
 if __name__ == "__main__":
-    # Check Admin
     try:
         is_admin = os.getuid() == 0
     except AttributeError:
@@ -785,7 +767,5 @@ if __name__ == "__main__":
     app = ProfessionalIPS_GUI(root)
     root.mainloop()
     
-    # Cleanup
     if app.resolver:
         app.resolver.stop()
-        

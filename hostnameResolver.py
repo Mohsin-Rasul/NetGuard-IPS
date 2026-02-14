@@ -1,4 +1,4 @@
-# hostname_resolver.py - DNS Resolution Module for NetGuard-IPS
+# hostnameResolver.py - DNS Resolution Module for NetGuard-IPS
 
 import socket
 import threading
@@ -9,107 +9,120 @@ import time
 class HostnameResolver:
     """
     Thread-safe hostname resolver using DNS reverse lookup
-    with caching to minimize network calls
+    with caching and TTL management to minimize network calls.
     """
     
-    def __init__(self, max_cache_size=1000, timeout=2.0):
-        self.cache = {}  # { ip_address: hostname }
-        self.max_cache = max_cache_size
+    def __init__(self, maxCacheSize=1000, timeout=2.0):
+        self.cache = {}  # { ipAddress: (hostname, timestamp) }
+        self.maxCache = maxCacheSize
         self.timeout = timeout
         self.lock = threading.Lock()
-        self.resolve_queue = queue.Queue()
-        self.resolver_thread = None
+        # FIX: Limit queue size to prevent memory exhaustion during heavy traffic
+        self.resolveQueue = queue.Queue(maxsize=2000)
+        self.resolverThread = None
         self.running = False
+        # Cache TTL set to 1 hour (3600 seconds)
+        self.cacheTTL = 3600 
     
     def start(self):
         """Start background resolver thread"""
         if self.running:
             return
         self.running = True
-        self.resolver_thread = Thread(target=self._resolver_worker, daemon=True)
-        self.resolver_thread.start()
+        self.resolverThread = Thread(target=self._resolverWorker, daemon=True)
+        self.resolverThread.start()
     
     def stop(self):
         """Stop background resolver thread"""
         self.running = False
-        if self.resolver_thread:
-            self.resolver_thread.join(timeout=2)
+        if self.resolverThread:
+            # Signal the worker to stop by joining
+            self.resolverThread.join(timeout=2)
     
-    def resolve_async(self, ip_address):
+    def resolveAsync(self, ipAddress):
         """
-        Non-blocking: Request async resolution
-        Returns immediately (check get_hostname for result)
+        Non-blocking: Request async resolution if not already cached.
         """
-        if ip_address not in self.cache:
-            self.resolve_queue.put(ip_address)
+        if ipAddress not in self.cache:
+            try:
+                # Use block=False to avoid hanging if the queue is full
+                self.resolveQueue.put(ipAddress, block=False)
+            except queue.Full:
+                pass
     
-    def get_hostname(self, ip_address, use_cache=True):
+    def getHostname(self, ipAddress, useCache=True):
         """
-        Get hostname for IP (returns cached value if available)
-        If not cached and use_cache=True, returns IP (and queues for background resolution)
-        If use_cache=False, performs synchronous lookup (BLOCKS!)
+        Get hostname for IP (returns cached value if available and not expired).
+        If not cached, returns IP and queues for background resolution.
         """
         with self.lock:
-            if ip_address in self.cache:
-                return self.cache[ip_address]
+            if ipAddress in self.cache:
+                hostname, timestamp = self.cache[ipAddress]
+                # FIX: Check if the cache entry has expired based on TTL
+                if (time.time() - timestamp) < self.cacheTTL:
+                    return hostname
         
-        if not use_cache:
-            return self._sync_resolve(ip_address)
+        if not useCache:
+            return self._syncResolve(ipAddress)[0]
         else:
-            # Queue for async resolution
-            self.resolve_async(ip_address)
-            return ip_address  # Return IP until resolved
+            self.resolveAsync(ipAddress)
+            return ipAddress  # Return IP string until background resolution finishes
     
-    def _sync_resolve(self, ip_address):
+    def _syncResolve(self, ipAddress):
         """Synchronous DNS reverse lookup - BLOCKING"""
         try:
             socket.setdefaulttimeout(self.timeout)
-            hostname, _, _ = socket.gethostbyaddr(ip_address)
+            hostname, _, _ = socket.gethostbyaddr(ipAddress)
             # Extract just the hostname (without domain)
             hostname = hostname.split('.')[0]
-            return hostname
+            return (hostname, time.time())
         except (socket.herror, socket.timeout, socket.gaierror, OSError):
-            return ip_address  # Return IP if resolution fails
+            # Return IP if resolution fails, but still mark timestamp to prevent constant retries
+            return (ipAddress, time.time())
     
-    def _resolver_worker(self):
+    def _resolverWorker(self):
         """Background worker thread for async resolution"""
         while self.running:
             try:
-                # Get IPs from queue (with timeout to allow stopping)
-                ip_address = self.resolve_queue.get(timeout=1)
+                # Get IPs from queue with a timeout to check if self.running changed
+                ipAddress = self.resolveQueue.get(timeout=1)
                 
-                # Check cache again (might have been resolved)
+                # Double-check cache validity before performing network I/O
                 with self.lock:
-                    if ip_address in self.cache:
-                        continue
+                    if ipAddress in self.cache:
+                        _, timestamp = self.cache[ipAddress]
+                        if (time.time() - timestamp) < self.cacheTTL:
+                            continue
                 
-                # Perform resolution
-                hostname = self._sync_resolve(ip_address)
+                # Perform the blocking network resolution
+                resolutionResult = self._syncResolve(ipAddress)
                 
-                # Store in cache
+                # Store in cache with resource management
                 with self.lock:
-                    if len(self.cache) >= self.max_cache:
-                        # Simple FIFO eviction if cache is full
+                    if len(self.cache) >= self.maxCache:
+                        # Simple FIFO eviction: remove the oldest key
                         oldest = next(iter(self.cache))
                         del self.cache[oldest]
                     
-                    self.cache[ip_address] = hostname
+                    self.cache[ipAddress] = resolutionResult
                     
             except queue.Empty:
                 continue
             except Exception as e:
-                print(f"[Resolver] Error: {e}")
+                # Basic error logging for the background thread
+                print(f"[Resolver] Background Error: {e}")
     
-    def clear_cache(self):
+    def clearCache(self):
         """Clear the hostname cache"""
         with self.lock:
             self.cache.clear()
     
-    def get_cache_stats(self):
-        """Return cache statistics"""
+    def getCacheStats(self):
+        """Return real-time cache and queue metrics"""
         with self.lock:
             return {
-                'cached_ips': len(self.cache),
-                'max_size': self.max_cache,
-                'queue_size': self.resolve_queue.qsize()
+                'cachedIps': len(self.cache),
+                'maxSize': self.maxCache,
+                'queueSize': self.resolveQueue.qsize(),
+                'running': self.running
             }

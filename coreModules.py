@@ -1,3 +1,5 @@
+# coreModules.py
+
 import threading
 import time
 import subprocess
@@ -17,53 +19,46 @@ except ImportError:
     sniff = None
     IP = IPv6 = TCP = UDP = ARP = Raw = None
     SCAPY_AVAILABLE = False
-    print("[WARN] Scapy not installed or not available. Packet capture will be disabled.")
-
-# ==========================================
-# PART 2: FUNCTIONAL MODULES
-# ==========================================
+    print("[WARN] Scapy not installed. Packet capture will be disabled.")
 
 class FirewallManager:
-    """Response Module: Interact with Windows Firewall"""
+    """Response Module: Interact with Windows Firewall using secure list-based arguments."""
     @staticmethod
     def blockIp(ipAddress):
-        ruleName = f"HIPS_BLOCK_{ipAddress}"
-        command = (
-            f"netsh advfirewall firewall add rule name=\"{ruleName}\" "
-            f"dir=in action=block remoteip={ipAddress}"
-        )
+        ruleName = f"NetGuard_Block_{ipAddress}"
+        # FIX: Pass arguments as a list to prevent command injection
+        command = [
+            "netsh", "advfirewall", "firewall", "add", "rule",
+            f"name={ruleName}", "dir=in", "action=block", f"remoteip={ipAddress}"
+        ]
         try:
-            subprocess.run(command, shell=True, check=True, stdout=subprocess.DEVNULL)
+            # Using capture_output to prevent console spam and check results
+            subprocess.run(command, check=True, capture_output=True)
             print(f"[FIREWALL] Blocked IP: {ipAddress}")
             return True
         except subprocess.CalledProcessError:
-            print(f"[ERROR] Failed to block {ipAddress}. Run as Admin.")
             return False
 
     @staticmethod
     def unblockIp(ipAddress):
-        ruleName = f"HIPS_BLOCK_{ipAddress}"
-        command = f'netsh advfirewall firewall delete rule name="{ruleName}"'
+        ruleName = f"NetGuard_Block_{ipAddress}"
+        command = ["netsh", "advfirewall", "firewall", "delete", "rule", f"name={ruleName}"]
         try:
-            res = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-            print(f"[FIREWALL] Unblocked IP: {ipAddress}")
-            return True, res.stdout.strip()
-        except subprocess.CalledProcessError as e:
-            err = (e.stderr or str(e)).strip()
-            print(f"[WARN] Unblock failed (non-elevated): {err}")
+            subprocess.run(command, check=True, capture_output=True)
+            return True, "Success"
+        except subprocess.CalledProcessError:
+            # Fallback to elevated PowerShell if standard delete fails
             try:
                 psCmd = f"Start-Process netsh -ArgumentList 'advfirewall firewall delete rule name=\"{ruleName}\"' -Verb RunAs -Wait"
                 subprocess.run(["powershell", "-Command", psCmd], check=True)
                 print(f"[FIREWALL] Unblocked IP via elevation: {ipAddress}")
                 return True, "Unblocked via elevation"
-            except Exception as e2:
-                err2 = str(e2)
-                print(f"[ERROR] Elevated unblock failed: {err2}")
-                return False, f"{err}; {err2}"
+            except:
+                return False, "Failed to unblock"
 
 class Logger:
     """Alert System - Log File Entry with Rotation"""
-    LOG_FILE = "hips_alerts.log"
+    LOG_FILE = "netguard_alerts.log"
     MAX_LOG_SIZE = 10 * 1024 * 1024  # 10 MB
     MAX_LOG_FILES = 5
 
@@ -87,7 +82,9 @@ class Logger:
     @staticmethod
     def logAlert(ip, reason, severity):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        logEntry = f"[{timestamp}] [{severity.upper()}] IP: {ip} - {reason}\n"
+        # Mask potentially sensitive payload keywords in logs
+        sanitizedReason = reason.replace("password", "********").replace("admin", "*****")
+        logEntry = f"[{timestamp}] [{severity.upper()}] IP: {ip} - {sanitizedReason}\n"
         try:
             Logger.rotateLogs()
             with open(Logger.LOG_FILE, "a") as f:
@@ -96,7 +93,6 @@ class Logger:
             print(f"Logging Error: {e}")
 
 class PacketCaptureThread(threading.Thread):
-    """Multithreaded Sniffer"""
     def __init__(self, pktQueue, blockedIps=None, blockedLock=None):
         super().__init__()
         self.pktQueue = pktQueue
@@ -113,7 +109,7 @@ class PacketCaptureThread(threading.Thread):
         while not self.stopEvent.is_set():
             try:
                 sniff(count=1, prn=self.processPacket, store=0, timeout=1)
-            except Exception as e:
+            except:
                 time.sleep(2)
 
     def processPacket(self, packet):
@@ -121,12 +117,9 @@ class PacketCaptureThread(threading.Thread):
             try:
                 srcIp = packet[IP].src
                 if self.blockedIps:
-                    if self.blockedLock:
-                        with self.blockedLock:
-                            if srcIp in self.blockedIps: return
-                    elif srcIp in self.blockedIps: return
+                    with self.blockedLock:
+                        if srcIp in self.blockedIps: return
             except: pass
-
         if IP in packet or ARP in packet:
             self.pktQueue.put(packet)
 
@@ -134,7 +127,6 @@ class PacketCaptureThread(threading.Thread):
         self.stopEvent.set()
 
 class DetectionEngine(threading.Thread):
-    """Signature Matching & Anomaly Detection Engine"""
     def __init__(self, pktQueue, guiCallback, blacklistBst, alertStack, analyzeLocal=False):
         super().__init__()
         self.pktQueue = pktQueue
@@ -151,19 +143,32 @@ class DetectionEngine(threading.Thread):
         self.blockedIps = set() 
         self.startTime = time.time()
         self.arpTable = {} 
-        self.whitelist = {self.getLocalIp(), "127.0.0.1", "0.0.0.0"}
-        self.maliciousDomains = set()
+        self.dnsCache = {}
+        self.blockedLock = threading.Lock()
         
         self.THRESHOLD_PPS = 150 
         self.PORT_SCAN_THRESHOLD = 5 
         self.SYN_THRESHOLD = 20 
-        self.dnsCache = {}
-        self.blockedLock = threading.Lock()
+
+        # Secure Persistence setup
         self.blockedStore = os.path.join(os.path.dirname(__file__), "blocked_ips.json")
+        self.secretKey = self._getOrCreateSecret()
+
+        self.whitelist = {self.getLocalIp(), "127.0.0.1", "0.0.0.0"}
 
         try:
             self.loadPersistedBlocks()
         except: pass
+
+    def _getOrCreateSecret(self):
+        """FIX: Uses a high-entropy persistent key instead of local IP."""
+        keyPath = os.path.join(os.path.dirname(__file__), ".netguard_secret")
+        if os.path.exists(keyPath):
+            with open(keyPath, "rb") as f: return f.read()
+        else:
+            newKey = os.urandom(32)
+            with open(keyPath, "wb") as f: f.write(newKey)
+            return newKey
 
     def getLocalIp(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -177,12 +182,12 @@ class DetectionEngine(threading.Thread):
         if ip in self.dnsCache: return self.dnsCache[ip]
         try:
             hostname = socket.gethostbyaddr(ip)[0]
-            hostname = "Google Service" if "google" in hostname else hostname
         except: hostname = ip
         self.dnsCache[ip] = hostname
         return hostname
 
     def run(self):
+        print("[DETECTION] Engine Started...")
         while not self.stopEvent.is_set():
             try:
                 if not self.pktQueue.empty():
@@ -213,12 +218,10 @@ class DetectionEngine(threading.Thread):
         with self.blockedLock:
             if srcIp in self.blockedIps: return
 
-        # Reset thresholds every second
         currTime = time.time()
         if currTime - self.startTime > 1.0:
             self.pktCounts, self.portMap, self.synTrack, self.startTime = {}, {}, {}, currTime
 
-        # Detection Logic
         threatDetected, reason, severity = False, "", "Low"
 
         if TCP in pkt and pkt[TCP].flags == 'S': 
@@ -230,12 +233,16 @@ class DetectionEngine(threading.Thread):
             if srcIp not in self.portMap: self.portMap[srcIp] = set()
             self.portMap[srcIp].add(dport)
             if len(self.portMap[srcIp]) > self.PORT_SCAN_THRESHOLD:
-                threatDetected, reason, severity = True, "Port Scanning", "Medium"
+                threatDetected, reason, severity = True, "Port Scanning Detected", "Medium"
 
         if threatDetected:
             self.triggerAlert(srcIp, reason, severity)
         else:
-            self.guiCallback("TRAFFIC", (srcIp, self.getHostname(srcIp), dstIp, proto, length, sport, dport))
+            payloadData = ""
+            if Raw in pkt:
+                try: payloadData = pkt[Raw].load.decode('utf-8', 'replace')
+                except: payloadData = str(pkt[Raw].load)
+            self.guiCallback("TRAFFIC", (srcIp, self.getHostname(srcIp), dstIp, proto, length, sport, dport, payloadData))
 
     def triggerAlert(self, srcIp, reason, severity):
         with self.blockedLock: self.blockedIps.add(srcIp)
@@ -251,9 +258,8 @@ class DetectionEngine(threading.Thread):
     def savePersistedBlocks(self):
         try:
             with self.blockedLock: data = list(self.blockedIps)
-            payload = json.dumps({'blocked': data})
-            key = hashlib.sha256(self.getLocalIp().encode()).digest()
-            sig = hmac.new(key, payload.encode(), hashlib.sha256).hexdigest()
+            payload = json.dumps({'blocked': data}, sort_keys=True)
+            sig = hmac.new(self.secretKey, payload.encode(), hashlib.sha256).hexdigest()
             with open(self.blockedStore, 'w') as f: json.dump({'blocked': data, 'signature': sig}, f)
         except: pass
 
@@ -262,9 +268,10 @@ class DetectionEngine(threading.Thread):
         try:
             with open(self.blockedStore, 'r') as f:
                 j = json.load(f)
-                key = hashlib.sha256(self.getLocalIp().encode()).digest()
-                sig = hmac.new(key, json.dumps({'blocked': j['blocked']}).encode(), hashlib.sha256).hexdigest()
-                if sig == j['signature']:
+                payload = json.dumps({'blocked': j['blocked']}, sort_keys=True)
+                expectedSig = hmac.new(self.secretKey, payload.encode(), hashlib.sha256).hexdigest()
+                # Use hmac.compare_digest to prevent timing attacks
+                if hmac.compare_digest(j['signature'], expectedSig):
                     for ip in j['blocked']:
                         self.blockedIps.add(ip)
                         self.blacklist.insert(ip)

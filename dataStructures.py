@@ -1,9 +1,9 @@
-# data_structures.py
+# dataStructures.py
 
 # --- Binary Search Tree (for Blocked IPs) ---
 class BSTNode:
-    def __init__(self, ipaddress):
-        self.ip = ipaddress
+    def __init__(self, ipAddress):
+        self.ip = ipAddress
         self.left = None
         self.right = None
 
@@ -11,58 +11,79 @@ class BlacklistBST:
     def __init__(self):
         self.root = None
 
-    def insert(self, ipaddress):
+    def insert(self, ipAddress):
         if self.root is None:
-            self.root = BSTNode(ipaddress)
+            self.root = BSTNode(ipAddress)
         else:
-            self.insertrecursive(self.root, ipaddress)
+            self.insertRecursive(self.root, ipAddress)
 
-    def insertrecursive(self, node, ipaddress):
-        if ipaddress < node.ip:
+    def insertRecursive(self, node, ipAddress):
+        if ipAddress < node.ip:
             if node.left is None:
-                node.left = BSTNode(ipaddress)
+                node.left = BSTNode(ipAddress)
             else:
-                self.insertrecursive(node.left, ipaddress)
-        elif ipaddress > node.ip:
+                self.insertRecursive(node.left, ipAddress)
+        elif ipAddress > node.ip:
             if node.right is None:
-                node.right = BSTNode(ipaddress)
+                node.right = BSTNode(ipAddress)
             else:
-                self.insertrecursive(node.right, ipaddress)
+                self.insertRecursive(node.right, ipAddress)
 
-    def search(self, ipaddress):
-        return self.searchrecursive(self.root, ipaddress)
+    def search(self, ipAddress):
+        return self.searchRecursive(self.root, ipAddress)
 
-    def searchrecursive(self, node, ipaddress):
+    def searchRecursive(self, node, ipAddress):
         if node is None:
             return False
-        if ipaddress == node.ip:
+        if ipAddress == node.ip:
             return True
-        elif ipaddress < node.ip:
-            return self.searchrecursive(node.left, ipaddress)
+        elif ipAddress < node.ip:
+            return self.searchRecursive(node.left, ipAddress)
         else:
-            return self.searchrecursive(node.right, ipaddress)
+            return self.searchRecursive(node.right, ipAddress)
 
-    def delete(self, ipaddress):
-        self.root = self.deleterecursive(self.root, ipaddress)
+    def delete(self, ipAddress):
+        self.root = self.deleteRecursive(self.root, ipAddress)
 
-    def deleterecursive(self, node, ipaddress):
-        if node is None: return node
-        if ipaddress < node.ip:
-            node.left = self.deleterecursive(node.left, ipaddress)
-        elif ipaddress > node.ip:
-            node.right = self.deleterecursive(node.right, ipaddress)
+    def deleteRecursive(self, node, ipAddress):
+        if node is None: 
+            return node
+        
+        if ipAddress < node.ip:
+            node.left = self.deleteRecursive(node.left, ipAddress)
+        elif ipAddress > node.ip:
+            node.right = self.deleteRecursive(node.right, ipAddress)
         else:
-            if node.left is None: return node.right
-            elif node.right is None: return node.left
-            temp = self.minvalue(node.right)
+            # Node with only one child or no child
+            if node.left is None: 
+                return node.right
+            elif node.right is None: 
+                return node.left
+            
+            # Node with two children: Get the inorder successor
+            temp = self.minValue(node.right)
             node.ip = temp.ip
-            node.right = self.deleterecursive(node.right, temp.ip)
+            node.right = self.deleteRecursive(node.right, temp.ip)
+            
         return node
 
-    def minvalue(self, node):
+    def minValue(self, node):
         current = node
-        while current.left is not None: current = current.left
+        while current.left is not None: 
+            current = current.left
         return current
+
+    def getInorderList(self):
+        """Helper for professional GUI to display all blocked IPs."""
+        result = []
+        self._inorderRecursive(self.root, result)
+        return result
+
+    def _inorderRecursive(self, node, result):
+        if node:
+            self._inorderRecursive(node.left, result)
+            result.append(node.ip)
+            self._inorderRecursive(node.right, result)
 
 # --- Stack (for Alerts) ---
 class StackNode:
@@ -76,28 +97,32 @@ class AlertStack:
         self.size = 0
 
     def push(self, alert):
-        newnode = StackNode(alert)
-        newnode.next = self.top
-        self.top = newnode
+        # Create alert string with timestamp for professional logging
+        newNode = StackNode(alert)
+        newNode.next = self.top
+        self.top = newNode
         self.size += 1
 
     def pop(self):
-        if self.isempty():
+        if self.isEmpty():
             return None
         data = self.top.data
         self.top = self.top.next
         self.size -= 1
         return data
 
-    def isempty(self):
+    def isEmpty(self):
         return self.top is None
 
 # --- Graph (for Network Map) ---
 class NetworkGraph:
     def __init__(self):
-        self.adjlist = {}
+        self.adjList = {}
 
-    def addconnection(self, src, dst):
-        if src not in self.adjlist:
-            self.adjlist[src] = set()
-        self.adjlist[src].add(dst)
+    def addConnection(self, src, dst):
+        if src not in self.adjList:
+            self.adjList[src] = set()
+        self.adjList[src].add(dst)
+
+    def getConnections(self, src):
+        return self.adjList.get(src, set())
